@@ -1,0 +1,892 @@
+# Multi-Language Conversation Translator
+
+## 1. App Concept
+
+Build a cross-platform mobile application for **Android and iOS** that allows two people to have a natural voice conversation in two selected languages.
+
+The user selects **two expected conversation languages**, for example:
+
+- English ↔ Bangla
+- English ↔ Mandarin Chinese
+- Bangla ↔ Mandarin Chinese
+- English ↔ Japanese
+- English ↔ Arabic
+- Any other supported language pair
+
+During the conversation, either person can speak naturally in either of the two selected languages.
+
+The application records the voice, converts it to text, identifies the source language, and uses the **OpenAI API** to translate the message into the other expected language.
+
+---
+
+# 2. Language Selection
+
+When creating a conversation, the user selects:
+
+```text
+Language A: English
+Language B: Bangla
+```
+
+The application then expects messages to be spoken in either English or Bangla.
+
+The user should not need to manually select the language for every message.
+
+The system should determine which of the two selected languages the user is speaking.
+
+Example:
+
+```text
+Expected languages:
+English ↔ Bangla
+
+User speaks:
+"How are you today?"
+
+Detected:
+English
+
+Translation:
+"আপনি আজ কেমন আছেন?"
+```
+
+Another message:
+
+```text
+User speaks:
+"আপনি কেমন আছেন?"
+
+Detected:
+Bangla
+
+Translation:
+"How are you?"
+```
+
+---
+
+# 3. Supported Languages
+
+The architecture must be designed to support multiple languages rather than hard-coding English and Chinese.
+
+The initial application may support:
+
+- English
+- Bangla
+- Mandarin Chinese
+
+But the language system must be extensible so additional languages can be added later.
+
+Example:
+
+```text
+English
+Bangla
+Mandarin Chinese
+Japanese
+Korean
+Arabic
+Spanish
+French
+German
+Hindi
+...
+```
+
+The language list should be represented using a reusable language model rather than hard-coded conditions.
+
+Example:
+
+```kotlin
+data class Language(
+    val code: String,
+    val name: String,
+    val nativeName: String
+)
+```
+
+---
+
+# 4. Conversation
+
+Each conversation contains exactly two expected languages.
+
+Example:
+
+```text
+Conversation:
+English ↔ Bangla
+```
+
+Another conversation could be:
+
+```text
+Conversation:
+English ↔ Mandarin Chinese
+```
+
+Another:
+
+```text
+Conversation:
+Bangla ↔ Japanese
+```
+
+The selected language pair belongs to the conversation and should not need to be selected again when returning to that conversation.
+
+---
+
+# 5. Home Screen
+
+The Home screen displays all saved conversations.
+
+Each conversation should show:
+
+- Conversation title
+- Language pair
+- Last message
+- Last updated time
+- Number of messages, if useful
+
+Example:
+
+```text
+English ↔ Bangla
+How are you?
+2 minutes ago
+
+English ↔ Mandarin
+你好吗？
+Yesterday
+
+Bangla ↔ Japanese
+আপনি কোথায় যাচ্ছেন?
+Sep 28
+```
+
+Conversations must be sorted by:
+
+```text
+updatedAt DESC
+```
+
+The most recently active conversation appears first.
+
+There should be a **+ button** to create a new conversation.
+
+---
+
+# 6. Create Conversation
+
+When the user taps the + button:
+
+Show:
+
+```text
+Create Conversation
+
+Language 1
+[ English ▼ ]
+
+Language 2
+[ Bangla ▼ ]
+
+[ Start Conversation ]
+```
+
+The same language cannot be selected twice.
+
+After selecting the two languages, create a new conversation and open the Chat screen.
+
+---
+
+# 7. Chat Screen
+
+The chat interface should look similar to:
+
+- WhatsApp
+- Messenger
+- iMessage
+
+Messages should appear chronologically.
+
+Each message represents one spoken interaction.
+
+Example:
+
+```text
+┌─────────────────────────────┐
+│ 🎵 Voice                    │
+│ "How are you?"              │
+│                             │
+│ Bangla                      │
+│ "আপনি কেমন আছেন?"          │
+│                             │
+│ ▶ Play                      │
+└─────────────────────────────┘
+```
+
+For a Bangla → English message:
+
+```text
+┌─────────────────────────────┐
+│ 🎵 Voice                    │
+│ "আপনি কেমন আছেন?"          │
+│                             │
+│ English                     │
+│ "How are you?"              │
+│                             │
+│ ▶ Play                      │
+└─────────────────────────────┘
+```
+
+---
+
+# 8. Message Structure
+
+Every message should contain:
+
+### 1. Voice
+
+The original recorded audio.
+
+The user can tap Play/Pause to hear the original voice.
+
+### 2. Transcribed Text
+
+The speech converted into text in the original language.
+
+Example:
+
+```text
+How are you?
+```
+
+### 3. Detected/Source Language
+
+Example:
+
+```text
+English
+```
+
+### 4. Translated Text
+
+The translated text in the other conversation language.
+
+Example:
+
+```text
+আপনি কেমন আছেন?
+```
+
+### 5. Pronunciation / Reading
+
+For languages where an English-readable pronunciation is useful, provide a pronunciation/romanization.
+
+For example:
+
+```text
+Chinese:
+你好吗？
+
+English reading:
+Nǐ hǎo ma?
+```
+
+For Bangla:
+
+```text
+আপনি কেমন আছেন?
+
+English reading:
+Apni kemon achhen?
+```
+
+This field should be optional and language-dependent.
+
+For example:
+
+```text
+English → Bangla
+
+Translated:
+আপনি কেমন আছেন?
+
+Reading:
+Apni kemon achhen?
+```
+
+```text
+Bangla → English
+
+Translated:
+How are you?
+
+Reading:
+Not required
+```
+
+The application should therefore not assume that only Chinese requires pronunciation.
+
+---
+
+# 9. Voice Processing Pipeline
+
+When the user presses the microphone button:
+
+```text
+Tap microphone
+      ↓
+Start recording
+      ↓
+User speaks
+      ↓
+Stop recording
+      ↓
+Save audio locally
+      ↓
+Speech-to-text
+      ↓
+Determine source language
+      ↓
+Determine target language
+      ↓
+Send text to OpenAI
+      ↓
+Translate
+      ↓
+Generate pronunciation if required
+      ↓
+Save message locally
+      ↓
+Display message
+```
+
+---
+
+# 10. Language Detection
+
+The system should know that only two languages are expected in the current conversation.
+
+For example:
+
+```text
+Conversation languages:
+
+English
+Bangla
+```
+
+If the user speaks:
+
+```text
+"Good morning"
+```
+
+the system should identify:
+
+```text
+sourceLanguage = English
+targetLanguage = Bangla
+```
+
+If the user speaks:
+
+```text
+"শুভ সকাল"
+```
+
+then:
+
+```text
+sourceLanguage = Bangla
+targetLanguage = English
+```
+
+The application should avoid requiring the user to manually choose the source language for every message.
+
+The implementation should use a language detection/transcription approach compatible with the OpenAI-based architecture.
+
+---
+
+# 11. OpenAI Translation
+
+OpenAI should receive structured instructions containing:
+
+- Source language
+- Target language
+- Original transcription
+- Whether pronunciation/romanization is required
+
+Example conceptual request:
+
+```text
+Source language: English
+Target language: Bangla
+
+Text:
+How are you today?
+
+Translate this into Bangla.
+
+Also provide an English-readable pronunciation of the Bangla translation.
+```
+
+The response should be structured JSON.
+
+Example:
+
+```json
+{
+  "sourceLanguage": "en",
+  "targetLanguage": "bn",
+  "transcribedText": "How are you today?",
+  "translatedText": "আপনি আজ কেমন আছেন?",
+  "englishReading": "Apni aj kemon achhen?"
+}
+```
+
+For Chinese:
+
+```json
+{
+  "sourceLanguage": "en",
+  "targetLanguage": "zh",
+  "transcribedText": "How are you?",
+  "translatedText": "你好吗？",
+  "englishReading": "Nǐ hǎo ma?"
+}
+```
+
+For English as the target:
+
+```json
+{
+  "sourceLanguage": "bn",
+  "targetLanguage": "en",
+  "transcribedText": "আপনি কেমন আছেন?",
+  "translatedText": "How are you?",
+  "englishReading": null
+}
+```
+
+---
+
+# 12. Pronunciation / Romanization
+
+The application should support an optional `reading` field.
+
+This is particularly useful for scripts that the other speaker may not be able to read.
+
+Examples:
+
+### Chinese
+
+```text
+你好
+
+Nǐ hǎo
+```
+
+### Bangla
+
+```text
+আপনি কেমন আছেন?
+
+Apni kemon achhen?
+```
+
+### Japanese
+
+```text
+元気ですか？
+
+Genki desu ka?
+```
+
+The OpenAI response should determine whether a useful romanized/English-readable pronunciation is appropriate for the target language.
+
+---
+
+# 13. Local Database
+
+All conversations and messages should be stored locally.
+
+The app must work offline for:
+
+- Viewing conversations
+- Opening previous conversations
+- Reading previous messages
+- Playing previously recorded audio
+
+Translation and transcription require network access to OpenAI.
+
+No backend server is required for the MVP.
+
+---
+
+# 14. Conversation Database
+
+Conversation:
+
+```text
+Conversation
+------------
+id
+title
+language1Code
+language2Code
+createdAt
+updatedAt
+```
+
+Example:
+
+```text
+id: 123
+title: English ↔ Bangla
+language1Code: en
+language2Code: bn
+createdAt: ...
+updatedAt: ...
+```
+
+---
+
+# 15. Message Database
+
+Message:
+
+```text
+Message
+-------
+id
+conversationId
+sourceLanguage
+targetLanguage
+audioPath
+transcribedText
+translatedText
+reading
+status
+createdAt
+```
+
+Status:
+
+```text
+RECORDING
+TRANSCRIBING
+TRANSLATING
+COMPLETED
+FAILED
+```
+
+The audio file should be stored in application-private storage.
+
+The database should only store the audio file path/reference.
+
+---
+
+# 16. Infinite Chat Scrolling
+
+The Chat screen should support large conversations.
+
+Do not load the entire conversation into memory.
+
+Messages should be loaded incrementally from the local database.
+
+The UI should support:
+
+```text
+Newest messages
+      ↓
+      ↓
+      ↓
+Older messages loaded when scrolling upward
+```
+
+When returning to a conversation, the user should be positioned near the latest message.
+
+---
+
+# 17. Retry
+
+If transcription or translation fails:
+
+The recorded audio and any successfully generated data must remain stored locally.
+
+Example:
+
+```text
+Voice recorded
+      ↓
+Transcription successful
+      ↓
+Translation failed
+      ↓
+Message status = FAILED
+```
+
+The user can tap:
+
+```text
+Retry
+```
+
+The app should retry translation without requiring the user to record the voice again.
+
+---
+
+# 18. Technology Stack
+
+Because the application will be released on both Android and iOS, use:
+
+### Kotlin Multiplatform (KMP)
+
+Shared code:
+
+- Data models
+- Business logic
+- Database
+- Repository
+- Use cases
+- OpenAI networking
+- Translation logic
+- Conversation management
+- Message processing
+- State management
+- Most UI
+
+### Compose Multiplatform
+
+Use Compose Multiplatform for shared UI where practical.
+
+### SQLDelight
+
+Use SQLDelight for the shared local database.
+
+Do not use Android Room in shared code.
+
+### Ktor Client
+
+Use Ktor Client for OpenAI API communication.
+
+### Kotlin Coroutines + Flow
+
+Use for asynchronous processing and reactive state.
+
+### Kotlin Serialization
+
+Use for JSON request/response models.
+
+### Dependency Injection
+
+Use a lightweight KMP-compatible DI approach such as Koin, if DI is required.
+
+---
+
+# 19. Platform-Specific Components
+
+Some functionality should remain native.
+
+### Android
+
+Use Android APIs for:
+
+- Audio recording
+- Audio playback
+- Microphone permissions
+- Application file storage
+
+### iOS
+
+Use iOS native APIs for:
+
+- Audio recording
+- Audio playback
+- Microphone permissions
+- Application file storage
+
+Create shared interfaces such as:
+
+```kotlin
+interface AudioRecorder
+
+interface AudioPlayer
+
+interface FileStorage
+```
+
+Then provide Android and iOS implementations.
+
+---
+
+# 20. Architecture
+
+Use a clean, modular architecture.
+
+Suggested structure:
+
+```text
+commonMain
+│
+├── data
+│   ├── database
+│   ├── network
+│   ├── repository
+│
+├── domain
+│   ├── model
+│   ├── repository
+│   └── usecase
+│
+├── presentation
+│   ├── home
+│   ├── conversation
+│   └── createconversation
+│
+├── audio
+│
+├── navigation
+│
+└── di
+```
+
+Platform implementations:
+
+```text
+androidMain
+├── audio
+├── permissions
+└── storage
+
+iosMain
+├── audio
+├── permissions
+└── storage
+```
+
+---
+
+# 21. Important Design Principle
+
+Do not hard-code logic such as:
+
+```text
+if English then Chinese
+else Chinese then English
+```
+
+Instead use:
+
+```text
+sourceLanguage
+targetLanguage
+```
+
+The target language is determined from the conversation's two selected languages.
+
+Conceptually:
+
+```kotlin
+targetLanguage =
+    if (sourceLanguage == language1)
+        language2
+    else
+        language1
+```
+
+This allows the same system to support:
+
+```text
+English ↔ Bangla
+English ↔ Chinese
+Bangla ↔ Chinese
+English ↔ Japanese
+Bangla ↔ Arabic
+Japanese ↔ Korean
+```
+
+without changing the core translation architecture.
+
+---
+
+# 22. OpenAI API Security
+
+Do not hard-code the OpenAI API key in source code.
+
+Do not commit API keys to Git.
+
+The architecture should isolate the OpenAI integration behind:
+
+```kotlin
+interface TranslationService
+```
+
+and:
+
+```kotlin
+interface SpeechToTextService
+```
+
+This will make it possible to introduce a backend proxy in the future without rewriting the application.
+
+For the MVP, the application may communicate directly with OpenAI as required, but the architecture should be prepared for a future secure backend.
+
+---
+
+# 23. Future Expansion
+
+The architecture should make it possible to add:
+
+- More languages
+- Text-only messages
+- Voice-to-voice translation
+- Automatic text-to-speech
+- Speaker identification
+- Conversation export
+- Search within conversations
+- Conversation rename
+- Delete conversation
+- Favorite conversations
+- Cloud synchronization
+- User accounts
+- Backend API
+- Translation history
+- AI conversation summaries
+
+These should not complicate the MVP unnecessarily.
+
+---
+
+# 24. MVP Goal
+
+The first version should focus on one simple experience:
+
+```text
+Create conversation
+        ↓
+Select two languages
+        ↓
+Start conversation
+        ↓
+Person A speaks either language
+        ↓
+Person B speaks either language
+        ↓
+App records voice
+        ↓
+Transcribes speech
+        ↓
+Detects source language
+        ↓
+Translates into the other selected language
+        ↓
+Shows original + translation + reading
+        ↓
+Stores everything locally
+```
+
+The core architecture must be **language-independent**, so adding another language later should primarily require adding language metadata and ensuring the speech/translation pipeline supports it—not rewriting the conversation system.
