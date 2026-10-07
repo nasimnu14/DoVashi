@@ -1,6 +1,6 @@
 # Status — 01-language-model
 
-**Current step:** 9 — PR · **Last updated:** 2026-10-08 01:46
+**Current step:** Done · **Last updated:** 2026-10-08 01:55
 
 | # | Step | Status | Note |
 |---|------|--------|------|
@@ -12,6 +12,6 @@
 | 6 | Plan confirmed | ✅ Done | 74 lines, confirmed unedited |
 | 7 | Test cases | ✅ Done | 10 cases: 6 happy / 2 negative / 2 edge |
 | 8 | Implement/review/fix | ✅ Done | Outcome: done, no Critical/High/Medium findings · see progress.md |
-| 9 | PR created | 🔄 In progress | |
+| 9 | PR created | ✅ Done | https://github.com/nasimnu14/DoVashi/pull/1 — merged into phase_1 |
 
 Status legend: ⏳ Pending · 🔄 In progress · ✅ Done · ⛔ Blocked (see note)

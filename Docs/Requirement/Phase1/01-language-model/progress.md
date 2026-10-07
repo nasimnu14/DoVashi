@@ -105,5 +105,9 @@ Reviewed via fresh subagent against 16-architecture-and-extensibility.md, 15-ope
 | 2 | New `Language` can really be added with zero other-file changes (ticket's core acceptance criterion) | Add a third temporary `Language(code = "fr", ...)` row to `LanguageCatalog.all`, rebuild, then revert | Builds and passes with no changes needed anywhere else | This is the central, hard-to-automate claim of the whole ticket (data-driven extensibility) — a human should do this once by hand before trusting it for Phase 2, since no automated check proves "no other file needed a change," only that today's 2-row build works |
 
 ## Pull Request
-_(pending — Step 9 of ticket-workflow)_
+https://github.com/nasimnu14/DoVashi/pull/1
+
+`feature/01-language-model` → `phase_1`. `gh` CLI was not available in this
+environment, so the PR was opened via the browser compare page and created
+by the user directly. **Merged** into `phase_1` by the user.
 
