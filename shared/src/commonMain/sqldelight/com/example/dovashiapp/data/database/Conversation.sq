@@ -1,0 +1,41 @@
+CREATE TABLE Conversation (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    language1Code TEXT NOT NULL,
+    language2Code TEXT NOT NULL,
+    createdAt INTEGER NOT NULL,
+    updatedAt INTEGER NOT NULL
+);
+
+insertConversation:
+INSERT INTO Conversation(title, language1Code, language2Code, createdAt, updatedAt)
+VALUES (?, ?, ?, ?, ?);
+
+touchConversation:
+UPDATE Conversation SET updatedAt = MAX(updatedAt, :updatedAt) WHERE id = :id;
+
+lastInsertRowId:
+SELECT last_insert_rowid();
+
+countConversations:
+SELECT COUNT(*) FROM Conversation;
+
+selectSummaries:
+SELECT
+    c.id,
+    c.title,
+    c.language1Code,
+    c.language2Code,
+    c.createdAt,
+    c.updatedAt,
+    lm.transcribedText AS lastMessageText,
+    lm.status AS lastMessageStatus,
+    (SELECT COUNT(*) FROM Message cm WHERE cm.conversationId = c.id) AS messageCount
+FROM Conversation c
+LEFT JOIN Message lm ON lm.id = (
+    SELECT m.id FROM Message m
+    WHERE m.conversationId = c.id
+    ORDER BY m.createdAt DESC, m.id DESC
+    LIMIT 1
+)
+ORDER BY c.updatedAt DESC, c.id DESC;

@@ -1,0 +1,20 @@
+CREATE TABLE Message (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    conversationId INTEGER NOT NULL REFERENCES Conversation(id),
+    sourceLanguage TEXT,
+    targetLanguage TEXT,
+    audioPath TEXT,
+    transcribedText TEXT,
+    translatedText TEXT,
+    reading TEXT,
+    status TEXT NOT NULL,
+    createdAt INTEGER NOT NULL
+);
+
+CREATE INDEX message_conversation_created ON Message(conversationId, createdAt);
+
+insertMessage:
+INSERT INTO Message(
+    conversationId, sourceLanguage, targetLanguage, audioPath,
+    transcribedText, translatedText, reading, status, createdAt
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
