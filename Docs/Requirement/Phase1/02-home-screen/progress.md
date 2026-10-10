@@ -162,3 +162,8 @@ Fresh read-only subagent (code reading only; lint and Gradle not run).
 | 6 | TalkBack on the FAB (TC-16) | 1. Enable TalkBack. 2. Focus the **+** button. | Announces "New conversation" only, not "+". | The accessibility fix is unverified on a device. |
 | 7 | Live re-sort after a message is added (TC-12 is automated only) | There is no in-app way to add a message in this ticket. Use a temporary debug hook or wait for ticket 04. | The conversation moves to the top with no refresh. | Core acceptance criterion; the repository logic is tested, but the UI collecting it live is not. |
 | 8 | Backup behaviour decision (see Open Issues) | Decide on `allowBackup`; if excluded, verify with `adb shell bmgr` or a device-to-device restore. | DB is (or is not) included in backups as decided. | Privacy of conversation content. |
+
+## Pull Request
+https://github.com/nasimnu14/DoVashi/pull/2
+
+`feature/02-home-screen` → `phase_1`. **Merged** into `phase_1` by the user (merge commit `b100ec9`).
