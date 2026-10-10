@@ -17,4 +17,15 @@ class AndroidFileStorage(rootDir: File) : FileStorage {
         if (!file.path.startsWith(root.path + File.separator)) return null
         return file.takeIf { it.isFile }?.path
     }
+
+    override fun size(reference: String): Long? = resolve(reference)?.let { File(it).length() }
+
+    override fun read(reference: String): ByteArray? {
+        val path = resolve(reference) ?: return null
+        return try {
+            File(path).readBytes()
+        } catch (e: IOException) {
+            null
+        }
+    }
 }

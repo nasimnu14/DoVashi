@@ -3,10 +3,13 @@ package com.example.dovashiapp.di
 import app.cash.sqldelight.db.SqlDriver
 import com.example.dovashiapp.data.database.DoVashiDatabase
 import com.example.dovashiapp.data.debug.DebugSeeder
+import com.example.dovashiapp.data.network.createHttpClient
+import com.example.dovashiapp.data.network.openai.OpenAiSpeechToTextService
 import com.example.dovashiapp.data.repository.SqlConversationRepository
 import com.example.dovashiapp.data.repository.SqlMessageRepository
 import com.example.dovashiapp.domain.repository.ConversationRepository
 import com.example.dovashiapp.domain.repository.MessageRepository
+import com.example.dovashiapp.domain.service.SpeechToTextService
 import com.example.dovashiapp.domain.usecase.CreateConversationUseCase
 import com.example.dovashiapp.domain.usecase.InsertMessageUseCase
 import com.example.dovashiapp.domain.usecase.MarkMessageFailedUseCase
@@ -14,6 +17,7 @@ import com.example.dovashiapp.domain.usecase.MarkMessageTranscribingUseCase
 import com.example.dovashiapp.domain.usecase.ObserveConversationUseCase
 import com.example.dovashiapp.domain.usecase.ObserveConversationSummariesUseCase
 import com.example.dovashiapp.domain.usecase.ObserveMessagesUseCase
+import com.example.dovashiapp.domain.usecase.ResolveMessageLanguagesUseCase
 import com.example.dovashiapp.domain.usecase.RetryTranslationUseCase
 import com.example.dovashiapp.domain.usecase.SaveTranscriptionUseCase
 import com.example.dovashiapp.domain.usecase.SaveTranslationUseCase
@@ -31,7 +35,8 @@ import org.koin.dsl.module
 
 /**
  * Platform modules must provide a [SqlDriver], the [CoroutineDispatcher] used for database work,
- * a [com.example.dovashiapp.audio.FileStorage] and an [com.example.dovashiapp.audio.AudioPlayer] factory.
+ * a [com.example.dovashiapp.audio.FileStorage], an [com.example.dovashiapp.audio.AudioPlayer] factory,
+ * an [io.ktor.client.engine.HttpClientEngine] and the [com.example.dovashiapp.data.network.openai.OpenAiConfig].
  */
 val sharedModule = module {
     single { DoVashiDatabase(get<SqlDriver>()) }
@@ -39,6 +44,8 @@ val sharedModule = module {
     factory { TimeZone.currentSystemDefault() }
     single<ConversationRepository> { SqlConversationRepository(get(), get(), get()) }
     single<MessageRepository> { SqlMessageRepository(get(), get(), get()) }
+    single { createHttpClient(get()) }
+    single<SpeechToTextService> { OpenAiSpeechToTextService(get(), get(), get(), get()) }
     factory { ObserveConversationSummariesUseCase(get()) }
     factory { CreateConversationUseCase(get()) }
     factory { InsertMessageUseCase(get()) }
@@ -48,6 +55,7 @@ val sharedModule = module {
     factory { SaveTranscriptionUseCase(get()) }
     factory { SaveTranslationUseCase(get()) }
     factory { RetryTranslationUseCase(get()) }
+    factory { ResolveMessageLanguagesUseCase() }
     factory { MarkMessageFailedUseCase(get()) }
     factory { DebugSeeder(get(), get(), get()) }
     viewModel { HomeViewModel(get(), get(), get()) }

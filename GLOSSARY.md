@@ -33,7 +33,7 @@ _Avoid_: Chinese, Mandarin
 
 **Message**:
 One spoken turn in a Conversation: its Recording, the transcribed text in the
-source Language, the translation into the target Language, and an optional
+Source Language, the translation into the Target Language, and an optional
 Reading.
 _Avoid_: chat item, bubble (a bubble is only how a Message is drawn)
 
@@ -53,3 +53,11 @@ Where a Message is in its life: recording, transcribing, translating, then
 completed, or failed at any stage. A failed Message can be retried, either from
 its Recording or from its saved transcript.
 _Avoid_: state (unqualified), progress
+
+**Source Language**:
+The Language a Message was spoken in, detected from its Recording and always one
+of the Conversation's Language Pair. The user never picks it.
+
+**Target Language**:
+The other Language of the Conversation's Language Pair, into which a Message is
+translated.

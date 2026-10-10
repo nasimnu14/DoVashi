@@ -14,7 +14,7 @@ class LanguageCatalogTest {
     @Test
     fun `catalog contains English`() {
         assertEquals(
-            Language(code = "en", name = "English", nativeName = "English", requiresReading = false),
+            Language(code = "en", name = "English", nativeName = "English", requiresReading = false, scripts = setOf(Script.LATIN)),
             LanguageCatalog.all.find { it.code == "en" }
         )
     }
@@ -22,7 +22,7 @@ class LanguageCatalogTest {
     @Test
     fun `catalog contains Mandarin Chinese`() {
         assertEquals(
-            Language(code = "zh", name = "Mandarin Chinese", nativeName = "普通话", requiresReading = true),
+            Language(code = "zh", name = "Mandarin Chinese", nativeName = "普通话", requiresReading = true, scripts = setOf(Script.HAN)),
             LanguageCatalog.all.find { it.code == "zh" }
         )
     }
@@ -30,7 +30,7 @@ class LanguageCatalogTest {
     @Test
     fun `byCode resolves English`() {
         assertEquals(
-            Language(code = "en", name = "English", nativeName = "English", requiresReading = false),
+            Language(code = "en", name = "English", nativeName = "English", requiresReading = false, scripts = setOf(Script.LATIN)),
             LanguageCatalog.byCode("en")
         )
     }
@@ -38,7 +38,7 @@ class LanguageCatalogTest {
     @Test
     fun `byCode resolves Mandarin Chinese`() {
         assertEquals(
-            Language(code = "zh", name = "Mandarin Chinese", nativeName = "普通话", requiresReading = true),
+            Language(code = "zh", name = "Mandarin Chinese", nativeName = "普通话", requiresReading = true, scripts = setOf(Script.HAN)),
             LanguageCatalog.byCode("zh")
         )
     }

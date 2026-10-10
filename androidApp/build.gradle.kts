@@ -1,3 +1,4 @@
+import java.util.Properties
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -31,6 +32,17 @@ android {
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1
         versionName = "1.0"
+        // Never committed: from the untracked local.properties, else the environment (doc 15).
+        val localProperties = Properties().apply {
+            rootProject.file("local.properties").takeIf { it.isFile }?.inputStream()?.use { load(it) }
+        }
+        val openAiApiKey = localProperties.getProperty("OPENAI_API_KEY")?.takeIf { it.isNotBlank() }
+            ?: System.getenv("OPENAI_API_KEY")?.takeIf { it.isNotBlank() }
+            ?: ""
+        // Keys are printable ASCII: strip pasted quotes and anything invisible so the header (and BuildConfig) is valid.
+        val escapedKey = openAiApiKey.trim().removeSurrounding("\"").removeSurrounding("'").filter { it in '!'..'~' }
+            .replace("\\", "\\\\").replace("\"", "\\\"")
+        buildConfigField("String", "OPENAI_API_KEY", "\"$escapedKey\"")
     }
     packaging {
         resources {
@@ -52,5 +64,6 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }

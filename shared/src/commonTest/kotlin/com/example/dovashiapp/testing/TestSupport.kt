@@ -1,6 +1,7 @@
 package com.example.dovashiapp.testing
 
 import com.example.dovashiapp.audio.AudioPlayer
+import com.example.dovashiapp.audio.FileStorage
 import com.example.dovashiapp.audio.PlaybackState
 import com.example.dovashiapp.domain.model.Conversation
 import com.example.dovashiapp.domain.model.ConversationSummary
@@ -167,3 +168,15 @@ fun message(
     status: MessageStatus = MessageStatus.COMPLETED,
     createdAt: Long = id,
 ) = Message(id, conversationId, sourceLanguage, targetLanguage, audioPath, transcribedText, translatedText, reading, status, createdAt)
+
+/** In-memory [FileStorage] keyed by reference. */
+class FakeFileStorage(private val files: Map<String, ByteArray> = emptyMap()) : FileStorage {
+    override fun resolve(reference: String): String? = reference.takeIf { it in files }?.let { "/fake/$it" }
+
+    override fun size(reference: String): Long? = sizes[reference] ?: files[reference]?.size?.toLong()
+
+    /** Reported sizes that override the real byte count (to simulate huge files cheaply). */
+    val sizes = mutableMapOf<String, Long>()
+
+    override fun read(reference: String): ByteArray? = files[reference]
+}
