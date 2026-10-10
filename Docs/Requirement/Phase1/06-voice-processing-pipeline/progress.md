@@ -63,7 +63,7 @@ Cycles 1 and 2 ran in parallel (fresh read-only subagents, different lenses); fi
 The first cycle-3 reviewer was stopped by the API usage limit, so cycle 3 was re-run after the reset (fresh read-only subagent).
 | # | Severity | Finding | File:line | Action | Result |
 |---|----------|---------|-----------|--------|--------|
-| 1 | Medium | `allowBackup="true"` with no rules, so Recordings and transcripts go to Google Drive backup | manifest | **Not fixed — your product decision** (open since ticket 02, planned for ticket 10) | open → user |
+| 1 | Medium | `allowBackup="true"` with no rules, so Recordings and transcripts go to Google Drive backup | manifest | **Fixed after the user's decision (2026-10-11: exclude)** — see "Backup exclusion" below | ✅ |
 | 2 | Medium | The no-op app-scope handler only ever caught Errors (every Exception is handled), hiding crashes such as the Step 5 OOM | `SharedModule.kt` | Fixed — handler removed; Errors crash and get reported | ✅ |
 | 3 | Medium | Lost Recordings from automatic stops (recorder error, background `stopAny`) vanished silently | controller, VM | Fixed — `lostRecordings: SharedFlow<conversationId>`; the Chat screen shows "The recording didn't work. Please try again." whoever stopped it; accidental taps aren't reported | ✅ `anAutomaticStopThatLosesTheRecordingIsReported`, `anAccidentalTapIsNotReportedAsLost`, VM `aRecordingLostByAnAutomaticStopIsExplained` |
 | 4 | Medium | Docs contradicted the code (sweep, callback name, Starting/StopResult/stopAny) | docs | Fixed — plan banner (+plan.txt), grill D8/D12, domain model, TC-19, new TC-23–25 | ✅ |
@@ -115,7 +115,7 @@ The first cycle-3 reviewer was stopped by the API usage limit, so cycle 3 was re
 - No microphone foreground service: background recording is out of scope.
 
 ### Open Issues & Risks
-- **[Medium — your decision] Backup of voice data.** `allowBackup="true"` with no rules means Recordings (`files/audio/*.m4a`) and transcripts go to Google Drive Auto Backup. This has been open since ticket 02 and matters more now that real voice is stored.
+- ~~Backup of voice data~~ — resolved: excluded by the user's decision (see "Backup exclusion").
 - A permission result arriving after a rotation is lost (tap again). There is no Settings link when the user permanently denied access.
 - An accidental tap still bumps the Conversation's `updatedAt` (it reorders Home).
 - No Koin graph test. iOS has no recorder, player, HTTP engine or Koin start yet (ticket 14).
@@ -131,6 +131,20 @@ The first cycle-3 reviewer was stopped by the API usage limit, so cycle 3 was re
 | 5 | Process death (TC-19) | Record, then `adb shell am kill com.example.dovashiapp`, then reopen. | No stuck "Recording…" or "Transcribing…" bubbles. | The startup sweep is only exercised in tests. |
 | 6 | Release build (TC-26 of ticket 04) | Install release. | No seed data and no tone file; the mic works the same. | Debug-only code must never reach users. |
 
+## Backup exclusion · 2026-10-11
+User decision: conversations and Recordings must not leave the device.
+- `androidApp/src/main/res/xml/data_extraction_rules.xml` (Android 12+): `cloud-backup` **and** `device-transfer` exclude the database (`dovashi.db` plus `-journal`, `-wal`, `-shm`) and the `audio/` folder. `allowBackup="false"` alone wouldn't stop device-to-device transfer on Android 12+, so explicit rules are used.
+- `androidApp/src/main/res/xml/backup_rules.xml` (Android 11, the minSdk): the same exclusions via `fullBackupContent`.
+- `AndroidManifest.xml` references both. Nothing else the app stores is user content today.
+- Verification:
+  - `./gradlew :androidApp:assembleDebug :androidApp:assembleRelease :androidApp:lintDebug` → BUILD SUCCESSFUL, no backup/manifest lint issues.
+  - `aapt2 dump xmltree` of the debug APK shows `fullBackupContent` and `dataExtractionRules` set, and both XML files are packaged.
+  - A real backup/restore was **not** run (needs a device): see manual check 7.
+
+| # | What to check | Steps | Expected result | Why critical |
+|---|---------------|-------|-----------------|--------------|
+| 7 | Voice data is not backed up (TC-26) | 1. Create a conversation and record a Message. 2. `adb shell bmgr enable true`, then `adb shell bmgr transport com.android.localtransport/.LocalTransport`. 3. `adb shell bmgr backupnow com.example.dovashiapp`. 4. `adb shell pm clear com.example.dovashiapp`, then `adb shell bmgr restore com.example.dovashiapp`. 5. Open the app. | Home shows no conversations and `files/audio` is empty: nothing was restored. | Privacy: voice and transcripts must never reach cloud backup or another device. |
+
 ## Pull Request
 `feature/06-voice-processing-pipeline` → `phase_1`, **stacked on `feature/09-pronunciation-romanization`** (merge order 03 → 04 → 05 → 07 → 08 → 09 → 06). `gh` isn't installed:
 - While 09 is unmerged: https://github.com/nasimnu14/DoVashi/compare/feature/09-pronunciation-romanization...feature/06-voice-processing-pipeline?expand=1
@@ -144,6 +158,7 @@ Adds the microphone to the Chat screen and the full pipeline behind it (doc 06):
 - **Pipeline:** each step is persisted before the next (Recording → Transcribing → language detection → Translating → Completed), composing tickets 05, 07, 08 and 09. Any failure marks the Message Failed and keeps the Recording and any transcript.
 - **Reliability:** an app-scoped processor runs one job per Message, and a startup sweep recovers Messages a killed process left behind.
 - **Permission:** the Android microphone permission flow, with an explanation when access is denied.
+- **Privacy:** conversations and Recordings are excluded from Android backup and device-to-device transfer.
 
 Depends on ticket 09.
 

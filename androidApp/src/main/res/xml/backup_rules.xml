@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 11: conversations (database) and Recordings (audio/) are never backed up. -->
+<full-backup-content>
+    <exclude domain="database" path="dovashi.db" />
+    <exclude domain="database" path="dovashi.db-journal" />
+    <exclude domain="database" path="dovashi.db-wal" />
+    <exclude domain="database" path="dovashi.db-shm" />
+    <exclude domain="file" path="audio/" />
+</full-backup-content>
