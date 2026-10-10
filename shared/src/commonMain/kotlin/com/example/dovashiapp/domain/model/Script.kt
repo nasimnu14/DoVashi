@@ -16,6 +16,14 @@ enum class Script(private val ranges: List<CharRange>, val countsCharacters: Boo
         /** The script of a letter, or null for anything else (digits, punctuation, spaces, unknown scripts). */
         fun of(c: Char): Script? =
             if (!c.isLetter()) null else entries.firstOrNull { script -> script.ranges.any { c in it } }
+
+        /**
+         * A letter English readers can sound out: [LATIN] (diacritics included, as in pinyin), IPA and phonetic
+         * letters, the later Latin extensions, or full-width Latin. Broader than [LATIN], which is tuned for detection.
+         */
+        fun isLatinLetter(c: Char): Boolean =
+            of(c) == LATIN || c in '\u0250'..'\u02FF' || c in '\u1D00'..'\u1DBF' || c in '\u2C60'..'\u2C7F' ||
+                c in '\uA720'..'\uA7FF' || c in '\uAB30'..'\uAB6F' || c in '\uFF21'..'\uFF3A' || c in '\uFF41'..'\uFF5A'
     }
 }
 

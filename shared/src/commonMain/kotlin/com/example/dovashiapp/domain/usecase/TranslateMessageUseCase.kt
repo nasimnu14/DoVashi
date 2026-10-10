@@ -26,7 +26,7 @@ class TranslateMessageUseCase(
         val source = message.sourceLanguage ?: return false
         val target = message.targetLanguage ?: return false
         val result = translationService.translate(
-            TranslationRequest(source, target, text, readingRequired = languageByCode(target)?.requiresReading == true),
+            TranslationRequest(source, target, text, readingSystem = languageByCode(target)?.readingSystem),
         )
         // Defence in depth for S8: never store a result for inputs that changed while the call was in flight.
         val current = messageRepository.getMessage(messageId) ?: return false

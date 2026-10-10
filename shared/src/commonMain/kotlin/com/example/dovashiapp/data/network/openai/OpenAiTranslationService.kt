@@ -106,12 +106,11 @@ class OpenAiTranslationService(
             put("targetLanguageName", languageName(request.targetLanguage))
             put("text", request.transcribedText)
             put("pronunciationRequired", request.readingRequired)
+            put("pronunciationSystem", request.readingSystem)
         }
-        val readingInstruction = if (request.readingRequired) {
-            "Also provide an English-readable pronunciation of the translation, in Latin script, in englishReading."
-        } else {
-            "Set englishReading to null."
-        }
+        val readingInstruction = request.readingSystem?.let { system ->
+            "Also provide an English-readable pronunciation of the translation in Latin script using $system, in englishReading."
+        } ?: "Set englishReading to null."
         return "Translate the text from the source language into the target language. $readingInstruction\n$fields"
     }
 

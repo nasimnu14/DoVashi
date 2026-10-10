@@ -12,7 +12,8 @@ class SaveTranslationUseCase(
     private val languageByCode: (String) -> Language? = LanguageCatalog::byCode,
 ) {
     /**
-     * Stores the translation, keeping [reading] only if the Message's target Language requires one. Returns false,
+     * Stores the translation, keeping [reading] only if the Message's target Language requires one and it is
+     * English-readable Latin script (see [readingFor]); a dropped Reading never blocks completion. Returns false,
      * writing nothing, when the translation has no visible text or is longer than [MAX_MESSAGE_TEXT_LENGTH], the
      * Message doesn't exist, or it isn't Translating. An over-long Reading is dropped.
      */
