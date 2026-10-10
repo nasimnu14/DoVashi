@@ -1,6 +1,6 @@
 # Status — 02-home-screen
 
-**Current step:** 9 — PR created · **Last updated:** 2026-10-08 05:22
+**Current step:** Done · **Last updated:** 2026-10-10 16:25
 
 | # | Step | Status | Note |
 |---|------|--------|------|
@@ -12,6 +12,6 @@
 | 6 | Plan confirmed | ✅ Done | 74 lines; confirmed unchanged (plan.txt == plan.md) |
 | 7 | Test cases | ✅ Done | 39 cases: 18 positive, 6 negative, 15 edge (15 [Auto], 24 manual) — see test-cases.md |
 | 8 | Implement/review/fix | ✅ Done | Done with open issues: 46 tests green, 3 review cycles, no Critical/High. Needs your decision on DB backup (Medium) — see progress.md |
-| 9 | PR created | 🔄 In progress | Waiting on branch/target confirmation; gh CLI not installed, so a drafted title/description may be the result |
+| 9 | PR created | ✅ Done | https://github.com/nasimnu14/DoVashi/pull/2 — merged into phase_1 |
 
 Status legend: ⏳ Pending · 🔄 In progress · ✅ Done · ⛔ Blocked (see note)
