@@ -178,6 +178,9 @@ class OpenAiSpeechToTextServiceTest {
             override fun resolve(reference: String): String? = error("disk")
             override fun size(reference: String): Long? = error("disk")
             override fun read(reference: String): ByteArray? = error("disk")
+            override fun newRecordingReference(): String = error("unused")
+            override fun writablePath(reference: String): String? = error("unused")
+            override fun delete(reference: String) = error("unused")
         }
         val stt = OpenAiSpeechToTextService(createHttpClient(MockEngine { error("no request expected") }), OpenAiConfig("k"), broken,
             UnconfinedTestDispatcher(testScheduler))

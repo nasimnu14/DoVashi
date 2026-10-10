@@ -32,6 +32,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import dovashiapp.shared.generated.resources.ic_stop
+import dovashiapp.shared.generated.resources.ic_mic
+import kotlinx.coroutines.delay
+import kotlin.time.Clock
+import androidx.compose.runtime.remember
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
@@ -51,6 +59,7 @@ import org.jetbrains.compose.resources.painterResource
 fun ChatScreen(
     state: ChatUiState,
     onPlaybackClick: (Long) -> Unit,
+    onMicClick: () -> Unit,
     onBackClick: () -> Unit,
 ) {
     Scaffold(
@@ -67,6 +76,7 @@ fun ChatScreen(
                 },
             )
         },
+        bottomBar = { (state as? ChatUiState.Content)?.let { MicBar(it.mic, it.micMessage, onMicClick) } },
     ) { innerPadding ->
         Box(Modifier.fillMaxSize().padding(innerPadding)) {
             when (state) {
@@ -178,4 +188,64 @@ private fun CenteredText(text: String) {
     Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
         Text(text, textAlign = TextAlign.Center, style = MaterialTheme.typography.bodyLarge)
     }
+}
+
+@Composable
+private fun MicBar(mic: MicUi, message: String?, onMicClick: () -> Unit) {
+    Surface(tonalElevation = 3.dp) {
+        Column(
+            Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            message?.let {
+                Text(
+                    it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                )
+            }
+            val recording = mic as? MicUi.Recording
+            FilledIconButton(
+                onClick = onMicClick,
+                enabled = mic != MicUi.Unavailable,
+                modifier = Modifier.size(64.dp),
+                colors = if (recording != null) {
+                    IconButtonDefaults.filledIconButtonColors(containerColor = MaterialTheme.colorScheme.error)
+                } else {
+                    IconButtonDefaults.filledIconButtonColors()
+                },
+            ) {
+                Icon(
+                    painterResource(if (recording != null) Res.drawable.ic_stop else Res.drawable.ic_mic),
+                    contentDescription = if (recording != null) "Stop recording" else "Start recording",
+                    modifier = Modifier.size(32.dp),
+                )
+            }
+            Text(
+                when {
+                    recording != null -> "Recording ${elapsedLabel(recording.startedAtMillis)} · tap to stop"
+                    mic == MicUi.Unavailable -> "Another conversation is recording"
+                    else -> "Tap to speak"
+                },
+                style = MaterialTheme.typography.labelMedium,
+            )
+        }
+    }
+}
+
+/** "m:ss" since [startedAtMillis], ticking every second while shown. */
+@Composable
+private fun elapsedLabel(startedAtMillis: Long): String {
+    var now by remember(startedAtMillis) { mutableStateOf(Clock.System.now().toEpochMilliseconds()) }
+    LaunchedEffect(startedAtMillis) {
+        while (true) {
+            delay(1_000)
+            now = Clock.System.now().toEpochMilliseconds()
+        }
+    }
+    val seconds = ((now - startedAtMillis).coerceAtLeast(0) / 1_000).toInt()
+    return "${seconds / 60}:${(seconds % 60).toString().padStart(2, '0')}"
 }

@@ -22,7 +22,7 @@ Cases tagged **[Auto]** are verified by the plan Step 7 tests. All other cases a
   - "English ↔ Mandarin Chinese" (most recent):
     - (1) English "How are you today?" → "你今天好吗？", reading "Nǐ jīntiān hǎo ma?", with the sample tone
     - (2) Mandarin Chinese "火车站在哪里？" → "Where is the train station?", no reading
-  - A second "English ↔ Mandarin Chinese" conversation: a TRANSLATING Message "Can you help me?" and a FAILED Message "我需要一杯水"
+  - A second "English ↔ Mandarin Chinese" conversation: two FAILED Messages with transcripts, "Can you help me?" and "我需要一杯水" (TRANSLATING until ticket 06)
   - The empty "Mandarin Chinese ↔ English" conversation
   - The older conversation with one FAILED Message that has no text
 
@@ -39,7 +39,7 @@ Cases tagged **[Auto]** are verified by the plan Step 7 tests. All other cases a
 | TC-05 | Bubble sides follow the source Language (AC3, M3) | TC-01 open | 1. Compare the horizontal position and colour of both bubbles | The English-source bubble sits on the left and the Mandarin-Chinese-source bubble on the right, in different colours | High |
 | TC-06 | Play a Recording (AC5) | TC-01 open; media volume up | 1. Tap Play on "How are you today?" | A tone of about 1.5 seconds plays; while it plays the button reads "Pause"; afterwards it returns to "Play" | High |
 | TC-07 | Pause and resume (AC5) | TC-01 open | 1. Tap Play<br>2. Within 1 second tap Pause<br>3. Tap Play again | After 2 the sound stops and the button reads "Play"; after 3 playback continues from where it paused (the remaining part of the tone) and ends normally | High |
-| TC-08 | Status lines for in-progress and failed Messages (AC4) | Fresh seed | 1. Press Back to Home<br>2. Open the second "English ↔ Mandarin Chinese" conversation | "Can you help me?" shows "Translating…"; "我需要一杯水" shows "Failed" in error colour; neither shows a translation block | High |
+| TC-08 | Status lines for in-progress and failed Messages (AC4) | Fresh seed | 1. Press Back to Home<br>2. Open the second "English ↔ Mandarin Chinese" conversation | "Can you help me?" and "我需要一杯水" both show "Failed" in error colour (since ticket 06 the seed no longer leaves a Message mid-pipeline); neither shows a translation block | High |
 | TC-09 | Empty conversation (AC6) | Fresh seed | 1. Open the "Mandarin Chinese ↔ English" conversation (preview "No messages yet") | The title is "Mandarin Chinese ↔ English" and the body shows "No messages yet" | Medium |
 | TC-10 | New conversation opens an empty Chat (AC6) | Home visible | 1. Tap **+**, then Start Conversation | The Chat screen shows the new title and "No messages yet" | Medium |
 | TC-11 | Back returns to Home (AC1) | TC-01 open | 1. Tap the Back arrow | Home is shown; the list is unchanged | Medium |

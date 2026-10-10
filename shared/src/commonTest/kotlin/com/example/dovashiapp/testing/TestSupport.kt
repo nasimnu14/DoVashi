@@ -1,6 +1,26 @@
 package com.example.dovashiapp.testing
 
 import com.example.dovashiapp.audio.AudioPlayer
+import com.example.dovashiapp.audio.AudioRecorder
+import com.example.dovashiapp.domain.model.Language
+import com.example.dovashiapp.domain.model.Script
+import com.example.dovashiapp.domain.service.SpeechToTextService
+import com.example.dovashiapp.domain.service.Transcription
+import com.example.dovashiapp.domain.service.TranslationRequest
+import com.example.dovashiapp.domain.service.TranslationResult
+import com.example.dovashiapp.domain.service.TranslationService
+import com.example.dovashiapp.domain.usecase.MarkMessageFailedUseCase
+import com.example.dovashiapp.domain.usecase.MarkMessageTranscribingUseCase
+import com.example.dovashiapp.domain.usecase.MessageProcessor
+import com.example.dovashiapp.domain.usecase.ProcessRecordingUseCase
+import com.example.dovashiapp.domain.usecase.ResolveMessageLanguagesUseCase
+import com.example.dovashiapp.domain.usecase.SaveTranscriptionUseCase
+import com.example.dovashiapp.domain.usecase.SaveTranslationUseCase
+import com.example.dovashiapp.domain.usecase.TranslateMessageUseCase
+import com.example.dovashiapp.domain.usecase.VoiceRecordingController
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 import com.example.dovashiapp.audio.FileStorage
 import com.example.dovashiapp.audio.PlaybackState
 import com.example.dovashiapp.domain.model.Conversation
@@ -82,6 +102,12 @@ class FakeMessageRepository : MessageRepository {
 
     override suspend fun getMessage(id: Long): Message? = messages.value.values.flatten().firstOrNull { it.id == id }
 
+    /** When set, inserts throw it (e.g. a full disk). */
+    var insertFailure: Exception? = null
+
+    /** When set, inserts suspend until it completes. */
+    var insertGate: CompletableDeferred<Unit>? = null
+
     override suspend fun insertMessage(
         conversationId: Long,
         status: MessageStatus,
@@ -92,6 +118,8 @@ class FakeMessageRepository : MessageRepository {
         translatedText: String?,
         reading: String?,
     ): Long {
+        insertGate?.await()
+        insertFailure?.let { throw it }
         val id = (messages.value.values.flatten().maxOfOrNull { it.id } ?: 0) + 1
         val message = Message(id, conversationId, sourceLanguage, targetLanguage, audioPath, transcribedText, translatedText, reading, status, id)
         messages.value = messages.value + (conversationId to listOf(message) + messages.value[conversationId].orEmpty())
@@ -113,6 +141,28 @@ class FakeMessageRepository : MessageRepository {
         step(id, MessageStep.SAVE_TRANSLATION) { it.copy(translatedText = translatedText, reading = reading) }
 
     override suspend fun markFailed(id: Long) = step(id, MessageStep.FAIL) { it }
+
+    override suspend fun deleteRecording(id: Long): Boolean {
+        val current = messages.value.values.flatten().firstOrNull { it.id == id } ?: return false
+        if (current.status != MessageStatus.RECORDING) return false
+        messages.value = messages.value.mapValues { (_, list) -> list.filterNot { it.id == id } }
+        return true
+    }
+
+    override suspend fun deleteInterruptedRecordings(): List<String> {
+        val recordings = messages.value.values.flatten().filter { it.status == MessageStatus.RECORDING }
+        messages.value = messages.value.mapValues { (_, list) -> list.filterNot { it.status == MessageStatus.RECORDING } }
+        return recordings.mapNotNull { it.audioPath }
+    }
+
+    override suspend fun failInterruptedMessages(): Int {
+        val interrupted = setOf(MessageStatus.TRANSCRIBING, MessageStatus.TRANSLATING)
+        var count = 0
+        messages.value = messages.value.mapValues { (_, list) ->
+            list.map { if (it.status in interrupted) it.copy(status = MessageStatus.FAILED).also { count++ } else it }
+        }
+        return count
+    }
 
     private fun step(id: Long, step: MessageStep, change: (Message) -> Message?): Boolean {
         val current = messages.value.values.flatten().firstOrNull { it.id == id } ?: return false
@@ -170,8 +220,21 @@ fun message(
 ) = Message(id, conversationId, sourceLanguage, targetLanguage, audioPath, transcribedText, translatedText, reading, status, createdAt)
 
 /** In-memory [FileStorage] keyed by reference. */
-class FakeFileStorage(private val files: Map<String, ByteArray> = emptyMap()) : FileStorage {
+class FakeFileStorage(initialFiles: Map<String, ByteArray> = emptyMap()) : FileStorage {
+    private val files = initialFiles.toMutableMap()
+    val deleted = mutableListOf<String>()
+    private var nextId = 1
+
     override fun resolve(reference: String): String? = reference.takeIf { it in files }?.let { "/fake/$it" }
+
+    override fun newRecordingReference(): String = "audio/rec-${nextId++}.m4a"
+
+    override fun writablePath(reference: String): String? = "/fake/$reference"
+
+    override fun delete(reference: String) {
+        deleted += reference
+        files.remove(reference)
+    }
 
     override fun size(reference: String): Long? = sizes[reference] ?: files[reference]?.size?.toLong()
 
@@ -179,4 +242,80 @@ class FakeFileStorage(private val files: Map<String, ByteArray> = emptyMap()) : 
     val sizes = mutableMapOf<String, Long>()
 
     override fun read(reference: String): ByteArray? = files[reference]
+}
+
+class FakeAudioRecorder : AudioRecorder {
+    var startSucceeds = true
+    var stopDuration: Long? = 1_000
+    var startedPath: String? = null
+    var onStoppedAutomatically: (() -> Unit)? = null
+    /** Runs when the microphone opens, e.g. to check what already exists at that moment. */
+    var onStart: () -> Unit = {}
+    var stops = 0
+    /** When set, start() throws it (a misbehaving recorder). */
+    var startFailure: Exception? = null
+
+    override fun start(absolutePath: String, maxDurationMillis: Long, onStoppedAutomatically: () -> Unit): Boolean {
+        onStart()
+        startFailure?.let { throw it }
+        if (!startSucceeds) return false
+        startedPath = absolutePath
+        this.onStoppedAutomatically = onStoppedAutomatically
+        return true
+    }
+
+    override fun stop(): Long? = stopDuration.also { stops++ }
+}
+
+class FakeSpeechToText(var result: Transcription = Transcription("Good morning", "aa")) : SpeechToTextService {
+    var failure: Exception? = null
+    /** Suspends inside the call until completed, to hold a job mid-flight. */
+    var gate: CompletableDeferred<Unit>? = null
+    val calls = mutableListOf<String>()
+
+    override suspend fun transcribe(recordingReference: String): Transcription {
+        calls += recordingReference
+        gate?.await()
+        failure?.let { throw it }
+        return result
+    }
+}
+
+class FakeTranslationService : TranslationService {
+    var failure: Exception? = null
+    val requests = mutableListOf<TranslationRequest>()
+
+    override suspend fun translate(request: TranslationRequest): TranslationResult {
+        requests += request
+        failure?.let { throw it }
+        return TranslationResult(request.sourceLanguage, request.targetLanguage, request.transcribedText, "T(${request.transcribedText})", "ti")
+    }
+}
+
+/** The real pipeline wired to fakes: Language aa (Latin) ↔ bb (Han, needs a Reading), Conversation 1 = (aa, bb). */
+class PipelineFixture(dispatcher: CoroutineDispatcher) {
+    val alpha = Language("aa", "Alpha", "Alpha", scripts = setOf(Script.LATIN))
+    val beta = Language("bb", "Beta", "Beta", readingSystem = "Beta Romanization", scripts = setOf(Script.HAN))
+    val byCode: (String) -> Language? = { code -> listOf(alpha, beta).find { it.code == code } }
+    val conversations = FakeConversationRepository().apply {
+        this.conversations.value = mapOf(1L to Conversation(1, "Alpha ↔ Beta", "aa", "bb", 0, 0))
+    }
+    val messages = FakeMessageRepository()
+    val speechToText = FakeSpeechToText()
+    val translator = FakeTranslationService()
+    val files = FakeFileStorage()
+    val recorder = FakeAudioRecorder()
+    val clock = FakeClock(Instant.parse("2026-10-10T12:00:00Z"))
+    val scope = CoroutineScope(SupervisorJob() + dispatcher)
+    val process = ProcessRecordingUseCase(
+        MarkMessageTranscribingUseCase(messages), speechToText, conversations, ResolveMessageLanguagesUseCase(byCode),
+        SaveTranscriptionUseCase(messages),
+        TranslateMessageUseCase(messages, translator, SaveTranslationUseCase(messages, byCode), byCode),
+        MarkMessageFailedUseCase(messages),
+    )
+    val processor = MessageProcessor(scope, process)
+    val controller = VoiceRecordingController(recorder, files, messages, processor, clock, scope, dispatcher)
+
+    suspend fun recordingMessage(reference: String = "audio/a.m4a"): Long =
+        messages.insertMessage(1, MessageStatus.RECORDING, audioPath = reference)
 }

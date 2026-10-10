@@ -5,6 +5,7 @@ import com.example.dovashiapp.domain.model.Conversation
 import com.example.dovashiapp.domain.model.Language
 import com.example.dovashiapp.domain.model.Message
 import com.example.dovashiapp.domain.model.MessageStatus
+import com.example.dovashiapp.domain.usecase.RecordingState
 import com.example.dovashiapp.presentation.languageLabel
 
 fun buildChatUiState(
@@ -13,12 +14,24 @@ fun buildChatUiState(
     playback: PlaybackState,
     unplayableRecordings: Map<Long, String>,
     languageByCode: (String) -> Language?,
+    mic: MicUi = MicUi.Idle,
+    micMessage: String? = null,
 ): ChatUiState {
     if (conversation == null) return ChatUiState.NotFound
     return ChatUiState.Content(
         title = conversation.title,
         bubbles = messages.map { bubble(it, conversation, playback, unplayableRecordings, languageByCode) },
+        mic = mic,
+        micMessage = micMessage,
     )
+}
+
+fun micUi(recording: RecordingState, conversationId: Long): MicUi = when (recording) {
+    RecordingState.Idle -> MicUi.Idle
+    is RecordingState.Starting ->
+        if (recording.conversationId == conversationId) MicUi.Recording(recording.startedAtMillis) else MicUi.Unavailable
+    is RecordingState.Recording ->
+        if (recording.conversationId == conversationId) MicUi.Recording(recording.startedAtMillis) else MicUi.Unavailable
 }
 
 private fun bubble(

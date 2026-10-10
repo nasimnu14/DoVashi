@@ -10,7 +10,10 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
+import com.example.dovashiapp.permissions.LocalMicrophonePermission
 import com.example.dovashiapp.presentation.conversation.ChatScreen
+import com.example.dovashiapp.presentation.conversation.ChatUiState
+import com.example.dovashiapp.presentation.conversation.MicUi
 import com.example.dovashiapp.presentation.conversation.ChatViewModel
 import com.example.dovashiapp.presentation.createconversation.CreateConversationScreen
 import com.example.dovashiapp.presentation.createconversation.CreateConversationViewModel
@@ -64,9 +67,18 @@ fun AppNavHost() {
             val stopIfPopped = { if (navController.currentBackStackEntry?.id != entry.id) viewModel.stopPlayback() }
             LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) { stopIfPopped() }
             LifecycleEventEffect(Lifecycle.Event.ON_STOP) { stopIfPopped() }
+            val microphone = LocalMicrophonePermission.current
             ChatScreen(
                 state = state,
                 onPlaybackClick = viewModel::onPlaybackClick,
+                onMicClick = {
+                    // Stopping never needs permission; starting asks first, then records if allowed.
+                    if ((state as? ChatUiState.Content)?.mic is MicUi.Recording || microphone.isGranted()) {
+                        viewModel.onMicClick()
+                    } else {
+                        microphone.request { granted -> if (granted) viewModel.onMicClick() else viewModel.onMicrophoneDenied() }
+                    }
+                },
                 onBackClick = dropUnlessResumed { navController.navigateUp() },
             )
         }

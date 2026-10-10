@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.pm.ApplicationInfo
 import com.example.dovashiapp.data.debug.DebugSeeder
 import com.example.dovashiapp.di.androidPlatformModule
+import com.example.dovashiapp.domain.usecase.FailInterruptedMessagesUseCase
 import com.example.dovashiapp.di.initKoin
 import java.io.File
 import java.io.IOException
@@ -17,6 +18,13 @@ class DoVashiApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         val koin = initKoin(androidPlatformModule(this, openAiApiKey = BuildConfig.OPENAI_API_KEY))
+        // Before any screen can start a Recording: Messages a killed process left mid-pipeline become Failed (retryable),
+        // cut-off Recordings are removed. Best effort: a failure here (e.g. a full disk) must not block every launch.
+        try {
+            runBlocking { koin.get<FailInterruptedMessagesUseCase>()() }
+        } catch (e: Exception) {
+            // Left for the next launch.
+        }
         val isDebuggable = applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
         if (isDebuggable) {
             // Blocking on purpose (debug only): the list must be seeded before the first screen reads it.

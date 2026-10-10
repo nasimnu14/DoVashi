@@ -79,6 +79,23 @@ class SqlMessageRepository(
         queries.updateStatus(next, id, allowed)
     }
 
+    override suspend fun deleteRecording(id: Long): Boolean = withContext(dispatcher) {
+        queries.deleteRecording(id, MessageStatus.RECORDING.name).value == 1L
+    }
+
+    override suspend fun deleteInterruptedRecordings(): List<String> = withContext(dispatcher) {
+        queries.transactionWithResult {
+            val references = queries.selectInterruptedRecordings(MessageStatus.RECORDING.name).executeAsList().filterNotNull()
+            queries.deleteInterruptedRecordings(MessageStatus.RECORDING.name)
+            references
+        }
+    }
+
+    override suspend fun failInterruptedMessages(): Int = withContext(dispatcher) {
+        val interrupted = listOf(MessageStatus.TRANSCRIBING, MessageStatus.TRANSLATING).map { it.name }
+        queries.failInterrupted(MessageStatus.FAILED.name, interrupted).value.toInt()
+    }
+
     /**
      * Runs [update] guarded by [step]'s allowed previous statuses; if it changed the row, bumps the Conversation's
      * `updatedAt` in the same transaction. Returns whether the step applied.

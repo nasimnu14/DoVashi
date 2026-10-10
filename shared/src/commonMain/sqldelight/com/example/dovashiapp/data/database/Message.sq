@@ -53,3 +53,17 @@ saveTranslation:
 UPDATE Message
 SET translatedText = :translatedText, reading = :reading, status = :status
 WHERE id = :id AND status IN :allowed;
+
+-- Discards an accidental or failed Recording; never touches a Message that has moved on.
+deleteRecording:
+DELETE FROM Message WHERE id = :id AND status = :recordingStatus;
+
+-- Startup sweep: nothing can still be working on these after a restart.
+selectInterruptedRecordings:
+SELECT audioPath FROM Message WHERE status = :recordingStatus AND audioPath IS NOT NULL;
+
+deleteInterruptedRecordings:
+DELETE FROM Message WHERE status = :recordingStatus;
+
+failInterrupted:
+UPDATE Message SET status = :failedStatus WHERE status IN :interrupted;

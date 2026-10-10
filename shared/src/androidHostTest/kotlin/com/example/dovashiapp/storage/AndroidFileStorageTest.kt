@@ -5,6 +5,8 @@ import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotEquals
+import kotlin.test.assertTrue
 import kotlin.test.assertNull
 
 class AndroidFileStorageTest {
@@ -51,6 +53,33 @@ class AndroidFileStorageTest {
         assertNull(storage.size("audio/missing.m4a"))
         assertNull(storage.read("audio/missing.m4a"))
         assertNull(storage.read("../${outside.name}"))
+    }
+
+    @Test
+    fun newRecordingReferencesAreUniqueM4aFilesUnderAudio() {
+        val a = storage.newRecordingReference()
+        val b = storage.newRecordingReference()
+        assertTrue(a.startsWith("audio/") && a.endsWith(".m4a"), a)
+        assertNotEquals(a, b)
+    }
+
+    @Test
+    fun writablePathCreatesTheFolderAndRejectsEscapes() {
+        val path = storage.writablePath("audio/new.m4a")!!
+        assertEquals(File(root, "audio/new.m4a").canonicalPath, path)
+        assertTrue(File(root, "audio").isDirectory)
+        assertNull(storage.writablePath("../${outside.name}"))
+        assertNull(storage.writablePath("/abs.m4a"))
+        assertNull(storage.writablePath(" "))
+    }
+
+    @Test
+    fun deleteRemovesOnlyFilesInsideTheRoot() {
+        File(root, "audio/a.m4a").apply { parentFile.mkdirs(); writeText("a") }
+        storage.delete("audio/a.m4a")
+        assertNull(storage.resolve("audio/a.m4a"))
+        storage.delete("../${outside.name}")
+        assertTrue(outside.exists())
     }
 
     @Test

@@ -4,8 +4,20 @@ sealed interface ChatUiState {
     data object Loading : ChatUiState
     data object NotFound : ChatUiState
 
-    /** [bubbles] are newest first, for a reversed list. */
-    data class Content(val title: String, val bubbles: List<MessageBubbleUi>) : ChatUiState
+    /** [bubbles] are newest first, for a reversed list. [micMessage] explains a refused or failed Recording. */
+    data class Content(
+        val title: String,
+        val bubbles: List<MessageBubbleUi>,
+        val mic: MicUi = MicUi.Idle,
+        val micMessage: String? = null,
+    ) : ChatUiState
+}
+
+sealed interface MicUi {
+    data object Idle : MicUi
+    data class Recording(val startedAtMillis: Long) : MicUi
+    /** Another Conversation is recording. */
+    data object Unavailable : MicUi
 }
 
 enum class BubbleSide { START, END }
