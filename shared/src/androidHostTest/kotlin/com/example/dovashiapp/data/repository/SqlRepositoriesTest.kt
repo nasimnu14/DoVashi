@@ -5,6 +5,7 @@ import com.example.dovashiapp.data.database.DoVashiDatabase
 import com.example.dovashiapp.data.debug.DebugSeeder
 import com.example.dovashiapp.domain.model.ConversationSummary
 import com.example.dovashiapp.domain.model.LanguageCatalog
+import com.example.dovashiapp.domain.model.Message
 import com.example.dovashiapp.domain.model.MessageStatus
 import com.example.dovashiapp.domain.usecase.CreateConversationUseCase
 import com.example.dovashiapp.testing.FakeClock
@@ -241,19 +242,85 @@ class SqlRepositoriesTest {
     }
 
     @Test
+    fun observeMessagesIsNewestFirstAndScopedToTheConversation() = runTest {
+        val f = Fixture(this)
+        val a = f.conversation("A")
+        val b = f.conversation("B")
+        f.clock.instant += 1.minutes
+        val older = f.messages.insertMessage(a, MessageStatus.COMPLETED, transcribedText = "older")
+        f.messages.insertMessage(b, MessageStatus.COMPLETED, transcribedText = "other conversation")
+        f.clock.instant += 1.minutes
+        val tieFirst = f.messages.insertMessage(a, MessageStatus.COMPLETED, transcribedText = "tie 1")
+        val tieSecond = f.messages.insertMessage(a, MessageStatus.TRANSLATING, transcribedText = "tie 2")
+
+        val messages = f.messages.observeMessages(a).first()
+
+        // The tie-break is also what SQLite's reverse index scan yields, so this can't isolate `id DESC`;
+        // it guards the overall order.
+        assertEquals(listOf(tieSecond, tieFirst, older), messages.map { it.id })
+        assertTrue(messages.all { it.conversationId == a })
+        assertEquals(MessageStatus.TRANSLATING, messages.first().status)
+    }
+
+    @Test
+    fun observeMessagesMapsEveryColumn() = runTest {
+        val f = Fixture(this)
+        val a = f.conversation()
+        val id = f.messages.insertMessage(a, MessageStatus.COMPLETED, "en", "zh", "audio/x.m4a", "Hi", "你好", "Nǐ hǎo")
+        val m = f.messages.observeMessages(a).first().single()
+        assertEquals(
+            Message(id, a, "en", "zh", "audio/x.m4a", "Hi", "你好", "Nǐ hǎo", MessageStatus.COMPLETED, f.clock.instant.toEpochMilliseconds()),
+            m,
+        )
+    }
+
+    @Test
+    fun observeMessagesReEmitsWhenAMessageIsInserted() = runTest {
+        val f = Fixture(this)
+        val a = f.conversation()
+        val emissions = mutableListOf<List<Message>>()
+        val job = launch(UnconfinedTestDispatcher(testScheduler)) { f.messages.observeMessages(a).toList(emissions) }
+
+        f.messages.insertMessage(a, MessageStatus.RECORDING)
+
+        assertEquals(listOf(0, 1), emissions.map { it.size })
+        job.cancel()
+    }
+
+    @Test
+    fun observeMessagesReadsUnknownStatusAsFailed() = runTest {
+        val f = Fixture(this)
+        val id = f.conversation()
+        f.driver.execute(null, "INSERT INTO Message(conversationId, status, createdAt) VALUES ($id, 'BOGUS', 1)", 0)
+        assertEquals(MessageStatus.FAILED, f.messages.observeMessages(id).first().single().status)
+    }
+
+    @Test
+    fun observeConversationReturnsTheRowOrNull() = runTest {
+        val f = Fixture(this)
+        val id = f.conversation("English ↔ Mandarin Chinese")
+        assertEquals("English ↔ Mandarin Chinese", f.conversations.observeConversation(id).first()?.title)
+        assertNull(f.conversations.observeConversation(id + 100).first())
+    }
+
+    @Test
     fun debugSeederCreatesVariedConversationsOnceThroughTheRealPath() = runTest {
         val f = Fixture(this)
         val seeder = DebugSeeder(f.database, f.clock, f.dispatcher)
 
-        seeder.seedIfEmpty()
+        seeder.seedIfEmpty(sampleAudioPath = "audio/sample.wav")
         val first = f.summaries()
         seeder.seedIfEmpty()
 
         assertEquals(first, f.summaries(), "second run must be a no-op")
-        assertEquals(3, first.size)
-        assertEquals(listOf(2L, 0L, 1L), first.map { it.messageCount })
-        assertEquals(listOf("Where is the train station?", null, null), first.map { it.lastMessageText })
+        assertEquals(4, first.size)
+        assertEquals(listOf(2L, 2L, 0L, 1L), first.map { it.messageCount })
+        assertEquals(listOf("火车站在哪里？", "我需要一杯水", null, null), first.map { it.lastMessageText })
         assertEquals(MessageStatus.FAILED, first.last().lastMessageStatus)
+        val recent = f.messages.observeMessages(first.first().conversation.id).first()
+        assertEquals(listOf(null, "audio/sample.wav"), recent.map { it.audioPath })
+        assertEquals(listOf(null, "Nǐ jīntiān hǎo ma?"), recent.map { it.reading })
+        assertTrue(recent.all { it.translatedText != null && it.sourceLanguage != it.targetLanguage })
         assertTrue(first.all { it.conversation.updatedAt <= f.clock.instant.toEpochMilliseconds() })
         assertEquals(first.map { it.conversation.updatedAt }.sortedDescending(), first.map { it.conversation.updatedAt })
     }

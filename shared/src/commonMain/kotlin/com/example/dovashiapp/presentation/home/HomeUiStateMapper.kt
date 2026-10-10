@@ -4,6 +4,7 @@ import com.example.dovashiapp.domain.model.Conversation
 import com.example.dovashiapp.domain.model.ConversationSummary
 import com.example.dovashiapp.domain.model.Language
 import com.example.dovashiapp.domain.model.MessageStatus
+import com.example.dovashiapp.presentation.languageLabel
 import kotlin.time.Instant
 import kotlinx.datetime.TimeZone
 
@@ -19,10 +20,8 @@ fun previewText(summary: ConversationSummary): String {
     }
 }
 
-fun pairLabel(conversation: Conversation, languageByCode: (String) -> Language?): String {
-    fun label(code: String) = languageByCode(code)?.name ?: code
-    return "${label(conversation.language1Code)} ↔ ${label(conversation.language2Code)}"
-}
+fun pairLabel(conversation: Conversation, languageByCode: (String) -> Language?): String =
+    "${languageLabel(conversation.language1Code, languageByCode)} ↔ ${languageLabel(conversation.language2Code, languageByCode)}"
 
 fun buildHomeUiState(
     summaries: List<ConversationSummary>,
