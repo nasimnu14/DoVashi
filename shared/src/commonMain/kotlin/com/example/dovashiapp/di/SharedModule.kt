@@ -5,11 +5,13 @@ import com.example.dovashiapp.data.database.DoVashiDatabase
 import com.example.dovashiapp.data.debug.DebugSeeder
 import com.example.dovashiapp.data.network.createHttpClient
 import com.example.dovashiapp.data.network.openai.OpenAiSpeechToTextService
+import com.example.dovashiapp.data.network.openai.OpenAiTranslationService
 import com.example.dovashiapp.data.repository.SqlConversationRepository
 import com.example.dovashiapp.data.repository.SqlMessageRepository
 import com.example.dovashiapp.domain.repository.ConversationRepository
 import com.example.dovashiapp.domain.repository.MessageRepository
 import com.example.dovashiapp.domain.service.SpeechToTextService
+import com.example.dovashiapp.domain.service.TranslationService
 import com.example.dovashiapp.domain.usecase.CreateConversationUseCase
 import com.example.dovashiapp.domain.usecase.InsertMessageUseCase
 import com.example.dovashiapp.domain.usecase.MarkMessageFailedUseCase
@@ -21,6 +23,7 @@ import com.example.dovashiapp.domain.usecase.ResolveMessageLanguagesUseCase
 import com.example.dovashiapp.domain.usecase.RetryTranslationUseCase
 import com.example.dovashiapp.domain.usecase.SaveTranscriptionUseCase
 import com.example.dovashiapp.domain.usecase.SaveTranslationUseCase
+import com.example.dovashiapp.domain.usecase.TranslateMessageUseCase
 import com.example.dovashiapp.presentation.conversation.ChatViewModel
 import com.example.dovashiapp.presentation.createconversation.CreateConversationViewModel
 import com.example.dovashiapp.presentation.home.HomeViewModel
@@ -46,6 +49,7 @@ val sharedModule = module {
     single<MessageRepository> { SqlMessageRepository(get(), get(), get()) }
     single { createHttpClient(get()) }
     single<SpeechToTextService> { OpenAiSpeechToTextService(get(), get(), get(), get()) }
+    single<TranslationService> { OpenAiTranslationService(get(), get()) }
     factory { ObserveConversationSummariesUseCase(get()) }
     factory { CreateConversationUseCase(get()) }
     factory { InsertMessageUseCase(get()) }
@@ -56,6 +60,7 @@ val sharedModule = module {
     factory { SaveTranslationUseCase(get()) }
     factory { RetryTranslationUseCase(get()) }
     factory { ResolveMessageLanguagesUseCase() }
+    factory { TranslateMessageUseCase(get(), get(), get()) }
     factory { MarkMessageFailedUseCase(get()) }
     factory { DebugSeeder(get(), get(), get()) }
     viewModel { HomeViewModel(get(), get(), get()) }

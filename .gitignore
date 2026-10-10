@@ -18,3 +18,7 @@ captures
 **/xcshareddata/WorkspaceSettings.xcsettings
 node_modules/
 !Docs/
+
+# Secrets (API keys belong in local.properties as OPENAI_API_KEY)
+secrets.key
+*.key

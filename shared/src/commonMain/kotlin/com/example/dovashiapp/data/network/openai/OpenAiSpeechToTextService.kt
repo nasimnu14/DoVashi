@@ -17,10 +17,7 @@ import io.ktor.http.contentLength
 import io.ktor.http.quote
 import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -35,26 +32,23 @@ class OpenAiSpeechToTextService(
 
     override suspend fun transcribe(recordingReference: String): Transcription {
         if (config.apiKey.isBlank()) throw SpeechToTextException(Reason.MISSING_API_KEY)
-        val size = withContext(ioDispatcher) { runCatchingNonCancellation { fileStorage.size(recordingReference) } }
+        val size = withContext(ioDispatcher) { openAiCall({ null }) { fileStorage.size(recordingReference) } }
             ?: throw SpeechToTextException(Reason.RECORDING_UNAVAILABLE)
         if (size > MAX_UPLOAD_BYTES) throw SpeechToTextException(Reason.RECORDING_REJECTED)
         val audio = readRecording(recordingReference) ?: throw SpeechToTextException(Reason.RECORDING_UNAVAILABLE)
         val fileName = recordingReference.substringAfterLast('/')
         val response = send(audio, fileName)
-        when (response.status.value) {
-            in 200..299 -> Unit
-            400, 413, 415 -> throw SpeechToTextException(Reason.RECORDING_REJECTED)
-            401, 403 -> throw SpeechToTextException(Reason.UNAUTHORIZED)
-            429 -> throw SpeechToTextException(Reason.RATE_LIMITED)
-            else -> throw SpeechToTextException(Reason.SERVER)
+        when (classifyStatus(response.status.value)) {
+            OpenAiStatus.OK -> Unit
+            OpenAiStatus.REJECTED -> throw SpeechToTextException(Reason.RECORDING_REJECTED)
+            OpenAiStatus.UNAUTHORIZED -> throw SpeechToTextException(Reason.UNAUTHORIZED)
+            OpenAiStatus.RATE_LIMITED -> throw SpeechToTextException(Reason.RATE_LIMITED)
+            OpenAiStatus.SERVER -> throw SpeechToTextException(Reason.SERVER)
         }
         if ((response.contentLength() ?: 0) > MAX_RESPONSE_BYTES) throw SpeechToTextException(Reason.INVALID_RESPONSE)
-        val body = try {
+        // No cause on parse errors: their message quotes the body, i.e. the user's transcript.
+        val body = openAiCall({ throw SpeechToTextException(Reason.INVALID_RESPONSE) }) {
             networkJson.decodeFromString<TranscriptionResponse>(response.bodyAsText())
-        } catch (e: Exception) {
-            currentCoroutineContext().ensureActive()
-            // No cause: a parse error's message quotes the body, i.e. the user's transcript.
-            throw SpeechToTextException(Reason.INVALID_RESPONSE)
         }
         // Whisper tends to invent text ("Thank you.") for silence; its own no-speech heuristic tells us when.
         val text = if (body.isSilence()) "" else body.text.trim()
@@ -65,38 +59,32 @@ class OpenAiSpeechToTextService(
 
     /** Reads off the caller's thread (Recordings can be megabytes); any read failure means "unavailable". */
     private suspend fun readRecording(reference: String): ByteArray? =
-        withContext(ioDispatcher) { runCatchingNonCancellation { fileStorage.read(reference) } }
+        withContext(ioDispatcher) { openAiCall({ null }) { fileStorage.read(reference) } }
 
-    private suspend fun send(audio: ByteArray, fileName: String): HttpResponse = try {
-        httpClient.submitFormWithBinaryData(
-            url = "${config.baseUrl.trimEnd('/')}/audio/transcriptions",
-            formData = formData {
-                append("model", MODEL)
-                append("response_format", "verbose_json")
-                append(
-                    "file",
-                    audio,
-                    Headers.build {
-                        append(HttpHeaders.ContentType, contentTypeFor(fileName))
-                        append(HttpHeaders.ContentDisposition, "filename=${fileName.quote()}") // quote() escapes
-                    },
-                )
-            },
-        ) { bearerAuth(config.apiKey) }
-    } catch (e: Exception) {
-        // Our own cancellation (Ktor may wrap it) propagates; anything else, a stray CancellationException
-        // included, is a transport failure.
-        currentCoroutineContext().ensureActive()
-        // Connection, DNS, TLS and timeout failures; the cause carries no key or body.
-        throw SpeechToTextException(Reason.NETWORK, e)
-    }
+    // Connection, DNS, TLS and timeout failures; the cause carries no key or body.
+    private suspend fun send(audio: ByteArray, fileName: String): HttpResponse =
+        openAiCall({ throw SpeechToTextException(Reason.NETWORK, it) }) {
+            httpClient.submitFormWithBinaryData(
+                url = "${config.baseUrl.trimEnd('/')}/audio/transcriptions",
+                formData = formData {
+                    append("model", MODEL)
+                    append("response_format", "verbose_json")
+                    append(
+                        "file",
+                        audio,
+                        Headers.build {
+                            append(HttpHeaders.ContentType, contentTypeFor(fileName))
+                            append(HttpHeaders.ContentDisposition, "filename=${fileName.quote()}") // quote() escapes
+                        },
+                    )
+                },
+            ) { bearerAuth(config.apiKey) }
+        }
 
     private companion object {
         const val MODEL = "whisper-1"
         /** OpenAI's transcription upload limit. */
         const val MAX_UPLOAD_BYTES = 25L * 1024 * 1024
-        /** Far above any real transcription response; guards against a misbehaving proxy. */
-        const val MAX_RESPONSE_BYTES = 1L * 1024 * 1024
 
         fun contentTypeFor(fileName: String): String = when (fileName.substringAfterLast('.', "").lowercase()) {
             "m4a", "mp4" -> "audio/mp4"
@@ -125,9 +113,3 @@ private class TranscriptionResponse(
         segments.all { (it.noSpeechProb ?: 0.0) > 0.6 && (it.avgLogprob ?: 0.0) < -1.0 }
 }
 
-private suspend inline fun <T> runCatchingNonCancellation(block: () -> T?): T? = try {
-    block()
-} catch (e: Exception) {
-    currentCoroutineContext().ensureActive()
-    null
-}

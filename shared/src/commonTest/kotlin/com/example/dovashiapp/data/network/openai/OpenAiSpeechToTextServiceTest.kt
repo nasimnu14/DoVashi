@@ -99,6 +99,7 @@ class OpenAiSpeechToTextServiceTest {
         assertEquals(Reason.RECORDING_REJECTED, reasonOf { service(status = HttpStatusCode.BadRequest).transcribe("audio/a.m4a") })
         assertEquals(Reason.RECORDING_REJECTED, reasonOf { service(status = HttpStatusCode.PayloadTooLarge).transcribe("audio/a.m4a") })
         assertEquals(Reason.RECORDING_REJECTED, reasonOf { service(status = HttpStatusCode.UnsupportedMediaType).transcribe("audio/a.m4a") })
+        assertEquals(Reason.RECORDING_REJECTED, reasonOf { service(status = HttpStatusCode.UnprocessableEntity).transcribe("audio/a.m4a") })
         assertEquals(Reason.SERVER, reasonOf { service(status = HttpStatusCode.BadGateway).transcribe("audio/a.m4a") })
     }
 
