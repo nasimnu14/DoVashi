@@ -126,3 +126,14 @@ Fresh read-only subagent; it also re-checked the cycle 1–2 fixes.
 | 4 | TalkBack (TC-22) | 1. Enable TalkBack. 2. Focus the arrow, then each field. 3. Set both fields to English. | The arrow is announced as "Back" and the fields as "Language 1"/"Language 2" with their values. "Choose two different languages" is announced when it appears. | Accessibility fixes from cycle 3 are unverified on a device. |
 | 5 | iOS resource bundling (smoke) | Once ticket 14 wires iOS Koin, open Create Conversation on the simulator. | The Back arrow renders with no resource crash. | `ic_arrow_back` is the app's first runtime Compose resource; on iOS it has only been compiled. |
 | 6 | Rotation and RTL (TC-17, TC-18) | 1. Change the selection, then rotate. 2. Switch the device language to an RTL locale (e.g. Arabic) and reopen the form. | The selection and error survive rotation. In RTL the arrow points right and sits on the right. | Lifecycle and layout aren't covered by automated tests. |
+
+## Pull Request
+`feature/03-create-conversation` → `phase_1` (pushed to `origin`). The `gh` CLI isn't installed, so open the PR from the compare page:
+https://github.com/nasimnu14/DoVashi/compare/phase_1...feature/03-create-conversation?expand=1
+
+**Title:** feat(create-conversation): catalog-driven Create Conversation screen (ticket 03)
+
+**Description:**
+Replaces the Create Conversation stub with the real screen. Language 1 and Language 2 dropdowns read from the Language Catalog. Choosing the same Language for both is rejected (inline error, Start disabled). Start Conversation persists the pair in the selected order and opens the Chat stub, with the form popped off the back stack. Also marks PR #2 (ticket 02) as merged in its ticket docs.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
