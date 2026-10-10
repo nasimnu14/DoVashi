@@ -10,6 +10,7 @@ import com.example.dovashiapp.domain.repository.MessageRepository
 import com.example.dovashiapp.domain.usecase.CreateConversationUseCase
 import com.example.dovashiapp.domain.usecase.InsertMessageUseCase
 import com.example.dovashiapp.domain.usecase.ObserveConversationSummariesUseCase
+import com.example.dovashiapp.presentation.createconversation.CreateConversationViewModel
 import com.example.dovashiapp.presentation.home.HomeViewModel
 import kotlin.time.Clock
 import kotlinx.coroutines.CoroutineDispatcher
@@ -32,6 +33,7 @@ val sharedModule = module {
     factory { InsertMessageUseCase(get()) }
     factory { DebugSeeder(get(), get(), get()) }
     viewModel { HomeViewModel(get(), get(), get()) }
+    viewModel { CreateConversationViewModel(get()) }
 }
 
 fun initKoin(platformModule: Module): Koin =

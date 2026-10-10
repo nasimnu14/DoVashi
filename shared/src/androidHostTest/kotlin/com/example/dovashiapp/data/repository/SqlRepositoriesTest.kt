@@ -4,7 +4,9 @@ import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.example.dovashiapp.data.database.DoVashiDatabase
 import com.example.dovashiapp.data.debug.DebugSeeder
 import com.example.dovashiapp.domain.model.ConversationSummary
+import com.example.dovashiapp.domain.model.LanguageCatalog
 import com.example.dovashiapp.domain.model.MessageStatus
+import com.example.dovashiapp.domain.usecase.CreateConversationUseCase
 import com.example.dovashiapp.testing.FakeClock
 import java.util.Properties
 import kotlin.test.Test
@@ -49,6 +51,26 @@ class SqlRepositoriesTest {
         assertEquals("English ↔ Mandarin Chinese", c.title)
         assertEquals("en", c.language1Code)
         assertEquals("zh", c.language2Code)
+    }
+
+    @Test
+    fun createConversationUseCaseStoresTheSelectedOrder() = runTest {
+        val f = Fixture(this)
+        val create = CreateConversationUseCase(f.conversations)
+        val (first, second) = LanguageCatalog.all
+        f.clock.instant += 1.minutes
+        val reversedId = create(second, first)
+        f.clock.instant += 1.minutes
+        val forwardId = create(first, second)
+
+        val byId = f.summaries().associateBy { it.conversation.id }
+        val forward = byId.getValue(forwardId).conversation
+        val reversed = byId.getValue(reversedId).conversation
+        assertEquals(listOf(first.code, second.code), listOf(forward.language1Code, forward.language2Code))
+        assertEquals("${first.name} ↔ ${second.name}", forward.title)
+        assertEquals(listOf(second.code, first.code), listOf(reversed.language1Code, reversed.language2Code))
+        assertEquals("${second.name} ↔ ${first.name}", reversed.title)
+        assertEquals(forward.createdAt, forward.updatedAt)
     }
 
     @Test

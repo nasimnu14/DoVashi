@@ -10,13 +10,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 
 @Composable
-fun CreateConversationStubScreen() {
-    Box(Modifier.fillMaxSize().safeContentPadding(), contentAlignment = Alignment.Center) {
-        Text("Hello World")
-    }
-}
-
-@Composable
 fun ChatStubScreen(conversationId: Long) {
     Box(Modifier.fillMaxSize().safeContentPadding(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
