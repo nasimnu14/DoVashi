@@ -30,3 +30,20 @@ _Avoid_: Language A / Language B
 Standard Mandarin written in Simplified Chinese characters; the Language whose
 Language Code is `zh`.
 _Avoid_: Chinese, Mandarin
+
+**Message**:
+One spoken turn in a Conversation: its Recording, the transcribed text in the
+source Language, the translation into the target Language, and an optional
+Reading.
+_Avoid_: chat item, bubble (a bubble is only how a Message is drawn)
+
+**Recording**:
+The audio captured for one Message, kept in app-private storage and played back
+on request.
+_Avoid_: voice note, audio clip
+
+**Reading**:
+A Latin-script, English-readable pronunciation of a Message's translation (for
+example pinyin for Mandarin Chinese), present only when the target Language
+needs one.
+_Avoid_: romanization (as a field name), pronunciation text

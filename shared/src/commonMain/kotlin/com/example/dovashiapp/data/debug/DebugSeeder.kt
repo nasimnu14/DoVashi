@@ -23,7 +23,8 @@ class DebugSeeder(
         override fun now(): Instant = instant
     }
 
-    suspend fun seedIfEmpty() {
+    /** [sampleAudioPath]: optional Recording reference attached to one sample Message so playback can be tried. */
+    suspend fun seedIfEmpty(sampleAudioPath: String? = null) {
         val languages = LanguageCatalog.all
         if (languages.size < 2) return
         val (first, second) = languages
@@ -41,10 +42,23 @@ class DebugSeeder(
         val failedId = createConversation(first, second)
         insertMessage(failedId, MessageStatus.FAILED, first.code, second.code)
 
+        seedClock.instant = now - 2.hours
+        val inProgressId = createConversation(first, second)
+        insertMessage(inProgressId, MessageStatus.TRANSLATING, first.code, second.code, transcribedText = "Can you help me?")
+        seedClock.instant = now - 90.minutes
+        insertMessage(inProgressId, MessageStatus.FAILED, second.code, first.code, transcribedText = "我需要一杯水")
+
+        // Sample text is illustrative only and matches the Phase 1 catalog order.
         seedClock.instant = now - 30.minutes
         val recentId = createConversation(first, second)
-        insertMessage(recentId, MessageStatus.COMPLETED, first.code, second.code, transcribedText = "How are you today?")
+        insertMessage(
+            recentId, MessageStatus.COMPLETED, first.code, second.code, audioPath = sampleAudioPath,
+            transcribedText = "How are you today?", translatedText = "你今天好吗？", reading = "Nǐ jīntiān hǎo ma?",
+        )
         seedClock.instant = now - 5.minutes
-        insertMessage(recentId, MessageStatus.COMPLETED, first.code, second.code, transcribedText = "Where is the train station?")
+        insertMessage(
+            recentId, MessageStatus.COMPLETED, second.code, first.code,
+            transcribedText = "火车站在哪里？", translatedText = "Where is the train station?",
+        )
     }
 }

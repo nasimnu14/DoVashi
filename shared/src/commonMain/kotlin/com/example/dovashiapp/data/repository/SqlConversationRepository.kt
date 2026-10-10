@@ -2,10 +2,10 @@ package com.example.dovashiapp.data.repository
 
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
+import app.cash.sqldelight.coroutines.mapToOneOrNull
 import com.example.dovashiapp.data.database.DoVashiDatabase
 import com.example.dovashiapp.domain.model.Conversation
 import com.example.dovashiapp.domain.model.ConversationSummary
-import com.example.dovashiapp.domain.model.MessageStatus
 import com.example.dovashiapp.domain.repository.ConversationRepository
 import kotlin.time.Clock
 import kotlinx.coroutines.CoroutineDispatcher
@@ -31,6 +31,11 @@ class SqlConversationRepository(
             )
         }.asFlow().mapToList(dispatcher)
 
+    override fun observeConversation(id: Long): Flow<Conversation?> =
+        queries.selectById(id) { rowId, title, language1Code, language2Code, createdAt, updatedAt ->
+            Conversation(rowId, title, language1Code, language2Code, createdAt, updatedAt)
+        }.asFlow().mapToOneOrNull(dispatcher)
+
     override suspend fun createConversation(
         title: String,
         language1Code: String,
@@ -47,7 +52,3 @@ class SqlConversationRepository(
         queries.countConversations().executeAsOne() > 0
     }
 }
-
-// Persisted text may predate or postdate this build's enum; one unknown value must not crash the whole list.
-private fun parseStatus(value: String): MessageStatus =
-    MessageStatus.entries.firstOrNull { it.name == value } ?: MessageStatus.FAILED

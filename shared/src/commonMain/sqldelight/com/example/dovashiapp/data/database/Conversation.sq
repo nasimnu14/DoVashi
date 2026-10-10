@@ -39,3 +39,6 @@ LEFT JOIN Message lm ON lm.id = (
     LIMIT 1
 )
 ORDER BY c.updatedAt DESC, c.id DESC;
+
+selectById:
+SELECT * FROM Conversation WHERE id = ?;

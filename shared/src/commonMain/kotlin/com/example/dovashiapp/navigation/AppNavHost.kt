@@ -2,17 +2,22 @@ package com.example.dovashiapp.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.dropUnlessResumed
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
+import com.example.dovashiapp.presentation.conversation.ChatScreen
+import com.example.dovashiapp.presentation.conversation.ChatViewModel
 import com.example.dovashiapp.presentation.createconversation.CreateConversationScreen
 import com.example.dovashiapp.presentation.createconversation.CreateConversationViewModel
 import com.example.dovashiapp.presentation.home.HomeScreen
 import com.example.dovashiapp.presentation.home.HomeViewModel
 import org.koin.compose.viewmodel.koinViewModel
+import org.koin.core.parameter.parametersOf
 
 @Composable
 fun AppNavHost() {
@@ -51,7 +56,19 @@ fun AppNavHost() {
             )
         }
         composable<ChatRoute> { entry ->
-            ChatStubScreen(entry.toRoute<ChatRoute>().conversationId)
+            val conversationId = entry.toRoute<ChatRoute>().conversationId
+            val viewModel = koinViewModel<ChatViewModel>(key = "chat-$conversationId") { parametersOf(conversationId) }
+            val state = viewModel.uiState.collectAsStateWithLifecycle().value
+            // Popped (not merely backgrounded): stop now instead of after the exit animation. The toolbar arrow
+            // pops before ON_PAUSE; system back (predictive) pauses first and pops before ON_STOP.
+            val stopIfPopped = { if (navController.currentBackStackEntry?.id != entry.id) viewModel.stopPlayback() }
+            LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) { stopIfPopped() }
+            LifecycleEventEffect(Lifecycle.Event.ON_STOP) { stopIfPopped() }
+            ChatScreen(
+                state = state,
+                onPlaybackClick = viewModel::onPlaybackClick,
+                onBackClick = dropUnlessResumed { navController.navigateUp() },
+            )
         }
     }
 }
