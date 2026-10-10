@@ -304,6 +304,146 @@ class SqlRepositoriesTest {
     }
 
     @Test
+    fun fullLifecycleStoresEachPartAndBumpsOnlyItsOwnConversation() = runTest {
+        val f = Fixture(this)
+        // Decoys make Message and Conversation ids differ, so bumping the wrong id would be caught.
+        val decoy = f.conversation("decoy")
+        f.messages.insertMessage(decoy, MessageStatus.COMPLETED)
+        f.messages.insertMessage(decoy, MessageStatus.COMPLETED)
+        val conversation = f.conversation("target")
+        val id = f.messages.insertMessage(conversation, MessageStatus.RECORDING, audioPath = "audio/a.m4a")
+        assertNotEquals(conversation, id)
+        val steps = listOf<Pair<MessageStatus, suspend () -> Boolean>>(
+            MessageStatus.TRANSCRIBING to { f.messages.markTranscribing(id) },
+            MessageStatus.TRANSLATING to { f.messages.saveTranscription(id, "How are you?", "en", "zh") },
+            MessageStatus.COMPLETED to { f.messages.saveTranslation(id, "你好吗？", "Nǐ hǎo ma?") },
+        )
+        val decoyUpdatedAt = f.summaries().first { it.conversation.id == decoy }.conversation.updatedAt
+        for ((expected, step) in steps) {
+            f.clock.instant += 1.minutes
+            assertTrue(step())
+            assertEquals(expected, f.messages.getMessage(id)!!.status)
+            val summaries = f.summaries()
+            assertEquals(conversation, summaries.first().conversation.id, "the stepped conversation sorts first")
+            assertEquals(f.clock.instant.toEpochMilliseconds(), summaries.first().conversation.updatedAt)
+            assertEquals(decoyUpdatedAt, summaries.first { it.conversation.id == decoy }.conversation.updatedAt)
+        }
+        assertEquals(
+            Message(id, conversation, "en", "zh", "audio/a.m4a", "How are you?", "你好吗？", "Nǐ hǎo ma?", MessageStatus.COMPLETED,
+                createdAt = f.messages.getMessage(id)!!.createdAt),
+            f.messages.getMessage(id),
+        )
+    }
+
+    @Test
+    fun markFailedFromEachStageKeepsEarlierPartsAndBumpsUpdatedAt() = runTest {
+        val f = Fixture(this)
+        val conversation = f.conversation()
+        val recording = f.messages.insertMessage(conversation, MessageStatus.RECORDING, audioPath = "audio/r.m4a")
+        val transcribing = f.messages.insertMessage(conversation, MessageStatus.TRANSCRIBING, audioPath = "audio/t.m4a")
+        val translating = f.messages.insertMessage(
+            conversation, MessageStatus.TRANSLATING, "en", "zh", "audio/l.m4a", transcribedText = "Hi",
+        )
+        for (id in listOf(recording, transcribing, translating)) {
+            f.clock.instant += 1.minutes
+            assertTrue(f.messages.markFailed(id))
+            assertEquals(f.clock.instant.toEpochMilliseconds(), f.summaries().single().conversation.updatedAt)
+        }
+        val failed = f.messages.getMessage(translating)!!
+        assertEquals(MessageStatus.FAILED, failed.status)
+        assertEquals(listOf("en", "zh", "audio/l.m4a", "Hi"), listOf(failed.sourceLanguage, failed.targetLanguage, failed.audioPath, failed.transcribedText))
+        assertEquals("audio/r.m4a", f.messages.getMessage(recording)!!.audioPath)
+    }
+
+    @Test
+    fun failedMessagesCanBeRetriedOnlyThroughRetrySteps() = runTest {
+        val f = Fixture(this)
+        val conversation = f.conversation()
+        val fromRecording = f.messages.insertMessage(conversation, MessageStatus.FAILED, audioPath = "audio/a.m4a")
+        val fromTranscript = f.messages.insertMessage(conversation, MessageStatus.FAILED, "en", "zh", "audio/b.m4a", "Hi")
+        val noTranscript = f.messages.insertMessage(conversation, MessageStatus.FAILED, audioPath = "audio/c.m4a")
+
+        assertFalse(f.messages.saveTranscription(fromTranscript, "late", "en", "zh"), "a late result can't revive it")
+        assertFalse(f.messages.retryTranslation(noTranscript))
+        assertTrue(f.messages.markTranscribing(fromRecording))
+        assertTrue(f.messages.retryTranslation(fromTranscript))
+        assertEquals(MessageStatus.TRANSLATING, f.messages.getMessage(fromTranscript)!!.status)
+        assertEquals("Hi", f.messages.getMessage(fromTranscript)!!.transcribedText)
+    }
+
+    @Test
+    fun invalidStepsAreRefusedAndChangeNothing() = runTest {
+        val f = Fixture(this)
+        val conversation = f.conversation()
+        val completed = f.messages.insertMessage(conversation, MessageStatus.COMPLETED, "en", "zh", "audio/c.m4a", "Hi", "你好", "Nǐ hǎo")
+        val recording = f.messages.insertMessage(conversation, MessageStatus.RECORDING)
+        val transcribing = f.messages.insertMessage(conversation, MessageStatus.TRANSCRIBING)
+        val before = listOf(completed, recording, transcribing).map { f.messages.getMessage(it) }
+        f.clock.instant += 5.minutes
+        val updatedAtBefore = f.summaries().single().conversation.updatedAt
+
+        assertFalse(f.messages.markTranscribing(completed))
+        assertFalse(f.messages.saveTranscription(completed, "x", "zh", "en"))
+        assertFalse(f.messages.saveTranslation(completed, "x", null))
+        assertFalse(f.messages.markFailed(completed))
+        assertFalse(f.messages.saveTranscription(recording, "x", "en", "zh"))
+        assertFalse(f.messages.saveTranslation(transcribing, "x", null))
+        assertFalse(f.messages.retryTranslation(completed))
+        assertFalse(f.messages.markTranscribing(9_999))
+
+        assertEquals(before, listOf(completed, recording, transcribing).map { f.messages.getMessage(it) })
+        assertEquals(updatedAtBefore, f.summaries().single().conversation.updatedAt)
+    }
+
+    @Test
+    fun retryTranslationAndStartTranscriptionNeedTheirSavedParts() = runTest {
+        val f = Fixture(this)
+        val conversation = f.conversation()
+        val missingCode = f.messages.insertMessage(conversation, MessageStatus.FAILED, "en", null, "audio/a.m4a", "Hi")
+        val noRecording = f.messages.insertMessage(conversation, MessageStatus.FAILED, audioPath = null)
+        assertFalse(f.messages.retryTranslation(missingCode))
+        assertFalse(f.messages.markTranscribing(noRecording))
+    }
+
+    @Test
+    fun refusedStepDoesNotReEmit() = runTest {
+        val f = Fixture(this)
+        val conversation = f.conversation()
+        val id = f.messages.insertMessage(conversation, MessageStatus.COMPLETED, "en", "zh", null, "Hi", "你好")
+        val messageEmissions = mutableListOf<List<Message>>()
+        val summaryEmissions = mutableListOf<List<ConversationSummary>>()
+        val jobs = listOf(
+            launch(UnconfinedTestDispatcher(testScheduler)) { f.messages.observeMessages(conversation).toList(messageEmissions) },
+            launch(UnconfinedTestDispatcher(testScheduler)) { f.conversations.observeSummaries().toList(summaryEmissions) },
+        )
+
+        assertFalse(f.messages.markFailed(id))
+
+        assertEquals(1, messageEmissions.size)
+        assertEquals(1, summaryEmissions.size)
+        jobs.forEach { it.cancel() }
+    }
+
+    @Test
+    fun observersReEmitAfterAStep() = runTest {
+        val f = Fixture(this)
+        val conversation = f.conversation()
+        val id = f.messages.insertMessage(conversation, MessageStatus.RECORDING, audioPath = "audio/a.m4a")
+        val emissions = mutableListOf<List<Message>>()
+        val job = launch(UnconfinedTestDispatcher(testScheduler)) { f.messages.observeMessages(conversation).toList(emissions) }
+
+        f.messages.markTranscribing(id)
+
+        assertEquals(listOf(MessageStatus.RECORDING, MessageStatus.TRANSCRIBING), emissions.map { it.single().status })
+        job.cancel()
+    }
+
+    @Test
+    fun getMessageReturnsNullForAnUnknownId() = runTest {
+        assertNull(Fixture(this).messages.getMessage(1))
+    }
+
+    @Test
     fun debugSeederCreatesVariedConversationsOnceThroughTheRealPath() = runTest {
         val f = Fixture(this)
         val seeder = DebugSeeder(f.database, f.clock, f.dispatcher)

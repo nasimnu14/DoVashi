@@ -47,3 +47,9 @@ A Latin-script, English-readable pronunciation of a Message's translation (for
 example pinyin for Mandarin Chinese), present only when the target Language
 needs one.
 _Avoid_: romanization (as a field name), pronunciation text
+
+**Message Status**:
+Where a Message is in its life: recording, transcribing, translating, then
+completed, or failed at any stage. A failed Message can be retried, either from
+its Recording or from its saved transcript.
+_Avoid_: state (unqualified), progress

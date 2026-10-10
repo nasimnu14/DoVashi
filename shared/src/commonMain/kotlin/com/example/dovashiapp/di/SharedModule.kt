@@ -9,9 +9,14 @@ import com.example.dovashiapp.domain.repository.ConversationRepository
 import com.example.dovashiapp.domain.repository.MessageRepository
 import com.example.dovashiapp.domain.usecase.CreateConversationUseCase
 import com.example.dovashiapp.domain.usecase.InsertMessageUseCase
+import com.example.dovashiapp.domain.usecase.MarkMessageFailedUseCase
+import com.example.dovashiapp.domain.usecase.MarkMessageTranscribingUseCase
 import com.example.dovashiapp.domain.usecase.ObserveConversationUseCase
 import com.example.dovashiapp.domain.usecase.ObserveConversationSummariesUseCase
 import com.example.dovashiapp.domain.usecase.ObserveMessagesUseCase
+import com.example.dovashiapp.domain.usecase.RetryTranslationUseCase
+import com.example.dovashiapp.domain.usecase.SaveTranscriptionUseCase
+import com.example.dovashiapp.domain.usecase.SaveTranslationUseCase
 import com.example.dovashiapp.presentation.conversation.ChatViewModel
 import com.example.dovashiapp.presentation.createconversation.CreateConversationViewModel
 import com.example.dovashiapp.presentation.home.HomeViewModel
@@ -39,6 +44,11 @@ val sharedModule = module {
     factory { InsertMessageUseCase(get()) }
     factory { ObserveConversationUseCase(get()) }
     factory { ObserveMessagesUseCase(get()) }
+    factory { MarkMessageTranscribingUseCase(get()) }
+    factory { SaveTranscriptionUseCase(get()) }
+    factory { SaveTranslationUseCase(get()) }
+    factory { RetryTranslationUseCase(get()) }
+    factory { MarkMessageFailedUseCase(get()) }
     factory { DebugSeeder(get(), get(), get()) }
     viewModel { HomeViewModel(get(), get(), get()) }
     viewModel { CreateConversationViewModel(get()) }
