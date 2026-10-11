@@ -20,6 +20,7 @@ import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
@@ -28,6 +29,10 @@ import kotlinx.coroutines.test.runTest
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class SqlRepositoriesTest {
+    private companion object {
+        const val ALL = 1_000
+    }
+
 
     private class Fixture(scope: TestScope) {
         val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY, Properties().apply { put("foreign_keys", "true") })
@@ -253,7 +258,7 @@ class SqlRepositoriesTest {
         val tieFirst = f.messages.insertMessage(a, MessageStatus.COMPLETED, transcribedText = "tie 1")
         val tieSecond = f.messages.insertMessage(a, MessageStatus.TRANSLATING, transcribedText = "tie 2")
 
-        val messages = f.messages.observeMessages(a).first()
+        val messages = f.messages.observeMessages(a, ALL).first()
 
         // The tie-break is also what SQLite's reverse index scan yields, so this can't isolate `id DESC`;
         // it guards the overall order.
@@ -263,11 +268,36 @@ class SqlRepositoriesTest {
     }
 
     @Test
+    fun observeMessagesReadsOnlyTheNewestLimitAndMoreOnDemand() = runTest {
+        val f = Fixture(this)
+        val a = f.conversation()
+        val ids = (1..10).map { f.messages.insertMessage(a, MessageStatus.COMPLETED) }
+
+        assertEquals(ids.reversed().take(3), f.messages.observeMessages(a, 3).first().map { it.id })
+        assertEquals(ids.reversed().take(7), f.messages.observeMessages(a, 7).first().map { it.id })
+        assertEquals(ids.size, f.messages.observeMessages(a, ALL).first().size)
+    }
+
+    @Test
+    fun aLimitedWindowStaysLiveAndSlidesWithNewMessages() = runTest {
+        val f = Fixture(this)
+        val a = f.conversation()
+        val first = (1..3).map { f.messages.insertMessage(a, MessageStatus.COMPLETED) }
+        val emissions = mutableListOf<List<Long>>()
+        val job = launch(UnconfinedTestDispatcher(testScheduler)) { f.messages.observeMessages(a, 3).map { l -> l.map { it.id } }.toList(emissions) }
+
+        val newest = f.messages.insertMessage(a, MessageStatus.COMPLETED)
+
+        assertEquals(listOf(newest, first[2], first[1]), emissions.last())
+        job.cancel()
+    }
+
+    @Test
     fun observeMessagesMapsEveryColumn() = runTest {
         val f = Fixture(this)
         val a = f.conversation()
         val id = f.messages.insertMessage(a, MessageStatus.COMPLETED, "en", "zh", "audio/x.m4a", "Hi", "你好", "Nǐ hǎo")
-        val m = f.messages.observeMessages(a).first().single()
+        val m = f.messages.observeMessages(a, ALL).first().single()
         assertEquals(
             Message(id, a, "en", "zh", "audio/x.m4a", "Hi", "你好", "Nǐ hǎo", MessageStatus.COMPLETED, f.clock.instant.toEpochMilliseconds()),
             m,
@@ -279,7 +309,7 @@ class SqlRepositoriesTest {
         val f = Fixture(this)
         val a = f.conversation()
         val emissions = mutableListOf<List<Message>>()
-        val job = launch(UnconfinedTestDispatcher(testScheduler)) { f.messages.observeMessages(a).toList(emissions) }
+        val job = launch(UnconfinedTestDispatcher(testScheduler)) { f.messages.observeMessages(a, ALL).toList(emissions) }
 
         f.messages.insertMessage(a, MessageStatus.RECORDING)
 
@@ -292,7 +322,7 @@ class SqlRepositoriesTest {
         val f = Fixture(this)
         val id = f.conversation()
         f.driver.execute(null, "INSERT INTO Message(conversationId, status, createdAt) VALUES ($id, 'BOGUS', 1)", 0)
-        assertEquals(MessageStatus.FAILED, f.messages.observeMessages(id).first().single().status)
+        assertEquals(MessageStatus.FAILED, f.messages.observeMessages(id, ALL).first().single().status)
     }
 
     @Test
@@ -413,7 +443,7 @@ class SqlRepositoriesTest {
         val messageEmissions = mutableListOf<List<Message>>()
         val summaryEmissions = mutableListOf<List<ConversationSummary>>()
         val jobs = listOf(
-            launch(UnconfinedTestDispatcher(testScheduler)) { f.messages.observeMessages(conversation).toList(messageEmissions) },
+            launch(UnconfinedTestDispatcher(testScheduler)) { f.messages.observeMessages(conversation, ALL).toList(messageEmissions) },
             launch(UnconfinedTestDispatcher(testScheduler)) { f.conversations.observeSummaries().toList(summaryEmissions) },
         )
 
@@ -430,7 +460,7 @@ class SqlRepositoriesTest {
         val conversation = f.conversation()
         val id = f.messages.insertMessage(conversation, MessageStatus.RECORDING, audioPath = "audio/a.m4a")
         val emissions = mutableListOf<List<Message>>()
-        val job = launch(UnconfinedTestDispatcher(testScheduler)) { f.messages.observeMessages(conversation).toList(emissions) }
+        val job = launch(UnconfinedTestDispatcher(testScheduler)) { f.messages.observeMessages(conversation, ALL).toList(emissions) }
 
         f.messages.markTranscribing(id)
 
@@ -452,7 +482,7 @@ class SqlRepositoriesTest {
         assertTrue(f.messages.deleteRecording(recording))
         assertFalse(f.messages.deleteRecording(transcribing))
         assertFalse(f.messages.deleteRecording(recording), "already gone")
-        assertEquals(listOf(transcribing), f.messages.observeMessages(conversation).first().map { it.id })
+        assertEquals(listOf(transcribing), f.messages.observeMessages(conversation, ALL).first().map { it.id })
     }
 
     @Test
@@ -497,7 +527,7 @@ class SqlRepositoriesTest {
         assertEquals(listOf(2L, 2L, 0L, 1L), first.map { it.messageCount })
         assertEquals(listOf("火车站在哪里？", "我需要一杯水", null, null), first.map { it.lastMessageText })
         assertEquals(MessageStatus.FAILED, first.last().lastMessageStatus)
-        val recent = f.messages.observeMessages(first.first().conversation.id).first()
+        val recent = f.messages.observeMessages(first.first().conversation.id, ALL).first()
         assertEquals(listOf(null, "audio/sample.wav"), recent.map { it.audioPath })
         assertEquals(listOf(null, "Nǐ jīntiān hǎo ma?"), recent.map { it.reading })
         assertTrue(recent.all { it.translatedText != null && it.sourceLanguage != it.targetLanguage })

@@ -72,6 +72,7 @@ fun AppNavHost() {
                 state = state,
                 onPlaybackClick = viewModel::onPlaybackClick,
                 onRetryClick = viewModel::onRetryClick,
+                onLoadOlder = viewModel::onLoadOlder,
                 onMicClick = {
                     // Stopping never needs permission; starting asks first, then records if allowed.
                     if ((state as? ChatUiState.Content)?.mic is MicUi.Recording || microphone.isGranted()) {

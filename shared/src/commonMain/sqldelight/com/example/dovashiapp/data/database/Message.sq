@@ -19,10 +19,12 @@ INSERT INTO Message(
     transcribedText, translatedText, reading, status, createdAt
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
 
-selectByConversation:
+-- Newest first; only the newest :limit rows are read, so large Conversations are never loaded whole (doc 11).
+selectNewestByConversation:
 SELECT * FROM Message
-WHERE conversationId = ?
-ORDER BY createdAt DESC, id DESC;
+WHERE conversationId = :conversationId
+ORDER BY createdAt DESC, id DESC
+LIMIT :limit;
 
 selectById:
 SELECT * FROM Message WHERE id = ?;
