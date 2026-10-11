@@ -21,6 +21,10 @@ The key is never committed. Transcription and translation call OpenAI directly (
 - Trade-off: the key is embedded in the built app (and in local Gradle caches), so treat any APK you share as holding it. The fix is a backend proxy: the app only knows the `TranslationService` and `SpeechToTextService` ports, so swap their two bindings in `SharedModule` (or point `OpenAiConfig.baseUrl` at the proxy).
 - Debug builds log OpenAI traffic to logcat under `DoVashi-HTTP` (the `Authorization` header is masked); release builds never log it.
 
+### Changing the database schema
+
+Installed apps keep their data, so never edit `Conversation.sq`/`Message.sq` columns without a migration: add `shared/src/commonMain/sqldelight/migrations/<n>.sqm` (where `n` is the current version) with the `ALTER TABLE`s, then run `./gradlew :shared:generateCommonMainDoVashiDatabaseSchema` to snapshot `databases/<n+1>.db` and `./gradlew :shared:verifySqlDelightMigration` to prove the migration yields the same schema as a fresh install.
+
 ### Running the apps
 
 Use the run configurations provided by the run widget in your IDE's toolbar. You can also use these commands and options:
