@@ -1,6 +1,8 @@
 package com.example.dovashiapp.audio
 
 import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
 import android.media.MediaPlayer
 import java.io.FileInputStream
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -8,18 +10,31 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /** [AudioPlayer] backed by [MediaPlayer]. Call from the main thread; callbacks arrive on it too. */
-class AndroidAudioPlayer(private val fileStorage: FileStorage) : AudioPlayer {
+class AndroidAudioPlayer(private val fileStorage: FileStorage, private val audioManager: AudioManager) : AudioPlayer {
     private val _state = MutableStateFlow<PlaybackState>(PlaybackState.Idle)
     override val state: StateFlow<PlaybackState> = _state.asStateFlow()
 
     private var player: MediaPlayer? = null
     private var released = false
 
+    // Playing a Recording takes transient audio focus (other apps pause) and gives it back when playback ends.
+    // Losing focus to a call or another app ends playback.
+    private val focusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+        .setAudioAttributes(
+            AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_MEDIA)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                .build(),
+        )
+        .setOnAudioFocusChangeListener { change -> if (change == AudioManager.AUDIOFOCUS_LOSS || change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) pause() }
+        .build()
+
     override fun play(audioPath: String): Boolean {
         if (released) return false
         val current = _state.value
         if (current is PlaybackState.Paused && current.audioPath == audioPath) {
             return try {
+                audioManager.requestAudioFocus(focusRequest)
                 checkNotNull(player).start()
                 _state.value = PlaybackState.Playing(audioPath)
                 true
@@ -44,6 +59,7 @@ class AndroidAudioPlayer(private val fileStorage: FileStorage) : AudioPlayer {
             mediaPlayer.setOnCompletionListener { stop() }
             mediaPlayer.setOnErrorListener { _, _, _ -> stop(); true }
             mediaPlayer.prepare() // Local file: synchronous prepare is fast enough.
+            audioManager.requestAudioFocus(focusRequest)
             mediaPlayer.start()
             player = mediaPlayer
             _state.value = PlaybackState.Playing(audioPath)
@@ -59,6 +75,7 @@ class AndroidAudioPlayer(private val fileStorage: FileStorage) : AudioPlayer {
         val current = _state.value as? PlaybackState.Playing ?: return
         try {
             player?.pause()
+            audioManager.abandonAudioFocusRequest(focusRequest)
             _state.value = PlaybackState.Paused(current.audioPath)
         } catch (e: IllegalStateException) {
             // An error the player hasn't reported yet; treat it as the end of playback.
@@ -69,6 +86,7 @@ class AndroidAudioPlayer(private val fileStorage: FileStorage) : AudioPlayer {
     override fun stop() {
         player?.release()
         player = null
+        audioManager.abandonAudioFocusRequest(focusRequest)
         _state.value = PlaybackState.Idle
     }
 
