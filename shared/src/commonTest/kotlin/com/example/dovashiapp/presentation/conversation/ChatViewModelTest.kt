@@ -36,7 +36,7 @@ class ChatViewModelTest {
     private val pipeline = PipelineFixture(UnconfinedTestDispatcher())
 
     private fun viewModel(id: Long = 1) =
-        ChatViewModel(id, ObserveConversationUseCase(conversations), ObserveMessagesUseCase(messages), player, pipeline.controller)
+        ChatViewModel(id, ObserveConversationUseCase(conversations), ObserveMessagesUseCase(messages), player, pipeline.controller, pipeline.processor)
 
     private fun TestScope.collect(vm: ChatViewModel): MutableList<ChatUiState> {
         val states = mutableListOf<ChatUiState>()
@@ -104,6 +104,23 @@ class ChatViewModelTest {
 
         assertEquals(listOf("audio/a", "audio/b"), player.played)
         assertEquals(listOf(BubblePlayback.PAUSE, BubblePlayback.PLAY), states.bubbles().map { it.playback })
+    }
+
+    @Test
+    fun retryClickRerunsAFailedMessageAndItCompletes() = runTest {
+        val id = pipeline.messages.insertMessage(1, com.example.dovashiapp.domain.model.MessageStatus.FAILED, audioPath = "audio/a.m4a")
+        val vm = ChatViewModel(
+            1, ObserveConversationUseCase(pipeline.conversations), ObserveMessagesUseCase(pipeline.messages), player,
+            pipeline.controller, pipeline.processor,
+        )
+        val states = collect(vm)
+        assertTrue(states.bubbles().single().canRetry)
+
+        vm.onRetryClick(id)
+
+        val bubble = states.bubbles().single()
+        assertEquals("T(Good morning)", bubble.translatedText)
+        assertEquals(false, bubble.canRetry)
     }
 
     @Test

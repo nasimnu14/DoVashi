@@ -35,5 +35,6 @@ data class MessageBubbleUi(
     val reading: String?,
     val statusLabel: String?,
     val isStatusError: Boolean,
+    val canRetry: Boolean,
     val playback: BubblePlayback,
 )

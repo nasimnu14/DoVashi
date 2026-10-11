@@ -13,6 +13,8 @@ import com.example.dovashiapp.domain.usecase.MarkMessageFailedUseCase
 import com.example.dovashiapp.domain.usecase.MarkMessageTranscribingUseCase
 import com.example.dovashiapp.domain.usecase.MessageProcessor
 import com.example.dovashiapp.domain.usecase.ProcessRecordingUseCase
+import com.example.dovashiapp.domain.usecase.RetryMessageUseCase
+import com.example.dovashiapp.domain.usecase.RetryTranslationUseCase
 import com.example.dovashiapp.domain.usecase.ResolveMessageLanguagesUseCase
 import com.example.dovashiapp.domain.usecase.SaveTranscriptionUseCase
 import com.example.dovashiapp.domain.usecase.SaveTranslationUseCase
@@ -313,7 +315,11 @@ class PipelineFixture(dispatcher: CoroutineDispatcher) {
         TranslateMessageUseCase(messages, translator, SaveTranslationUseCase(messages, byCode), byCode),
         MarkMessageFailedUseCase(messages),
     )
-    val processor = MessageProcessor(scope, process)
+    val retryMessage = RetryMessageUseCase(
+        messages, RetryTranslationUseCase(messages), TranslateMessageUseCase(messages, translator, SaveTranslationUseCase(messages, byCode), byCode),
+        process, MarkMessageFailedUseCase(messages),
+    )
+    val processor = MessageProcessor(scope, process, retryMessage)
     val controller = VoiceRecordingController(recorder, files, messages, processor, clock, scope, dispatcher)
 
     suspend fun recordingMessage(reference: String = "audio/a.m4a"): Long =

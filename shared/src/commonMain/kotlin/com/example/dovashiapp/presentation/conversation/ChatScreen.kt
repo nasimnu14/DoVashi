@@ -59,6 +59,7 @@ import org.jetbrains.compose.resources.painterResource
 fun ChatScreen(
     state: ChatUiState,
     onPlaybackClick: (Long) -> Unit,
+    onRetryClick: (Long) -> Unit,
     onMicClick: () -> Unit,
     onBackClick: () -> Unit,
 ) {
@@ -86,7 +87,7 @@ fun ChatScreen(
                     if (state.bubbles.isEmpty()) {
                         CenteredText("No messages yet")
                     } else {
-                        MessageList(state.bubbles, onPlaybackClick)
+                        MessageList(state.bubbles, onPlaybackClick, onRetryClick)
                     }
             }
         }
@@ -94,7 +95,7 @@ fun ChatScreen(
 }
 
 @Composable
-private fun MessageList(bubbles: List<MessageBubbleUi>, onPlaybackClick: (Long) -> Unit) {
+private fun MessageList(bubbles: List<MessageBubbleUi>, onPlaybackClick: (Long) -> Unit, onRetryClick: (Long) -> Unit) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val maxBubbleWidth = maxWidth * 0.85f
         val listState = rememberLazyListState()
@@ -121,7 +122,12 @@ private fun MessageList(bubbles: List<MessageBubbleUi>, onPlaybackClick: (Long) 
                     Modifier.fillMaxWidth(),
                     contentAlignment = if (bubble.side == BubbleSide.END) Alignment.CenterEnd else Alignment.CenterStart,
                 ) {
-                    MessageBubble(bubble, Modifier.widthIn(max = maxBubbleWidth), onPlaybackClick = { onPlaybackClick(bubble.id) })
+                    MessageBubble(
+                        bubble,
+                        Modifier.widthIn(max = maxBubbleWidth),
+                        onPlaybackClick = { onPlaybackClick(bubble.id) },
+                        onRetryClick = { onRetryClick(bubble.id) },
+                    )
                 }
             }
         }
@@ -129,7 +135,7 @@ private fun MessageList(bubbles: List<MessageBubbleUi>, onPlaybackClick: (Long) 
 }
 
 @Composable
-private fun MessageBubble(bubble: MessageBubbleUi, modifier: Modifier, onPlaybackClick: () -> Unit) {
+private fun MessageBubble(bubble: MessageBubbleUi, modifier: Modifier, onPlaybackClick: () -> Unit, onRetryClick: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     Surface(
         modifier = modifier,
@@ -154,6 +160,9 @@ private fun MessageBubble(bubble: MessageBubbleUi, modifier: Modifier, onPlaybac
                     style = MaterialTheme.typography.bodySmall,
                     color = if (bubble.isStatusError) colors.error else colors.onSurfaceVariant,
                 )
+            }
+            if (bubble.canRetry) {
+                TextButton(onClick = onRetryClick, contentPadding = PaddingValues(horizontal = 8.dp)) { Text("Retry") }
             }
             PlaybackControl(bubble.playback, onPlaybackClick)
         }

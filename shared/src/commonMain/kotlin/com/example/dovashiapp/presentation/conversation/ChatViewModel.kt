@@ -7,6 +7,7 @@ import com.example.dovashiapp.audio.PlaybackState
 import com.example.dovashiapp.domain.model.Language
 import com.example.dovashiapp.domain.model.LanguageCatalog
 import com.example.dovashiapp.domain.model.Message
+import com.example.dovashiapp.domain.usecase.MessageProcessor
 import com.example.dovashiapp.domain.usecase.ObserveConversationUseCase
 import com.example.dovashiapp.domain.usecase.ObserveMessagesUseCase
 import com.example.dovashiapp.domain.usecase.StartResult
@@ -27,6 +28,7 @@ class ChatViewModel(
     observeMessages: ObserveMessagesUseCase,
     private val audioPlayer: AudioPlayer,
     private val recordingController: VoiceRecordingController,
+    private val processor: MessageProcessor,
     private val languageByCode: (String) -> Language? = LanguageCatalog::byCode,
 ) : ViewModel() {
 
@@ -57,6 +59,11 @@ class ChatViewModel(
     }
 
     fun stopPlayback() = audioPlayer.stop()
+
+    /** Retries a Failed Message from its saved transcript or Recording; it keeps running if the user leaves. */
+    fun onRetryClick(messageId: Long) {
+        viewModelScope.launch { processor.retry(messageId) }
+    }
 
     /** Starts a Recording here, or stops the one in progress here. Call only once microphone access is granted. */
     fun onMicClick() {

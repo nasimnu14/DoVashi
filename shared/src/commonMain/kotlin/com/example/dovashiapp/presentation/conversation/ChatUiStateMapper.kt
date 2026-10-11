@@ -52,6 +52,7 @@ private fun bubble(
         reading = if (translated != null) message.reading?.takeIf { it.isNotBlank() } else null,
         statusLabel = statusLabel(message.status),
         isStatusError = message.status == MessageStatus.FAILED,
+        canRetry = message.isRetryable,
         playback = playbackOf(message, playback, unplayableRecordings),
     )
 }

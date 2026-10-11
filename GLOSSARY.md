@@ -62,3 +62,9 @@ of the Conversation's Language Pair. The user never picks it.
 **Target Language**:
 The other Language of the Conversation's Language Pair, into which a Message is
 translated.
+
+**Retry**:
+The user's tap on a Failed Message to run it again without recording again. It
+resumes at translation when the transcript was saved, and otherwise
+re-transcribes the saved Recording. Nothing already saved is discarded.
+_Avoid_: resend, re-record
