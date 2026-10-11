@@ -32,6 +32,7 @@ import com.example.dovashiapp.presentation.conversation.ChatViewModel
 import com.example.dovashiapp.presentation.createconversation.CreateConversationViewModel
 import com.example.dovashiapp.presentation.home.HomeViewModel
 import kotlin.time.Clock
+import io.ktor.client.plugins.logging.Logger
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -59,7 +60,8 @@ val sharedModule = module {
     factory { TimeZone.currentSystemDefault() }
     single<ConversationRepository> { SqlConversationRepository(get(), get(), get()) }
     single<MessageRepository> { SqlMessageRepository(get(), get(), get()) }
-    single { createHttpClient(get()) }
+    // A traffic logger is bound only by debug builds.
+    single { createHttpClient(get(), getOrNull<Logger>()) }
     single<SpeechToTextService> { OpenAiSpeechToTextService(get(), get(), get(), get()) }
     single<TranslationService> { OpenAiTranslationService(get(), get()) }
     factory { ObserveConversationSummariesUseCase(get()) }

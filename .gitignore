@@ -22,3 +22,4 @@ node_modules/
 # Secrets (API keys belong in local.properties as OPENAI_API_KEY)
 secrets.key
 *.key
+Secrets.xcconfig

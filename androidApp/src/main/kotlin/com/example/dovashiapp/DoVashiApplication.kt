@@ -17,7 +17,11 @@ import kotlinx.coroutines.runBlocking
 class DoVashiApplication : Application() {
     override fun onCreate() {
         super.onCreate()
-        val koin = initKoin(androidPlatformModule(this, openAiApiKey = BuildConfig.OPENAI_API_KEY))
+        val isDebuggable = applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
+        // Debug builds log OpenAI traffic to logcat (tag DoVashi-HTTP); release builds never do.
+        val koin = initKoin(
+            androidPlatformModule(this, openAiApiKey = BuildConfig.OPENAI_API_KEY, logHttpTraffic = isDebuggable),
+        )
         // Before any screen can start a Recording: Messages a killed process left mid-pipeline become Failed (retryable),
         // cut-off Recordings are removed. Best effort: a failure here (e.g. a full disk) must not block every launch.
         try {
@@ -25,7 +29,6 @@ class DoVashiApplication : Application() {
         } catch (e: Exception) {
             // Left for the next launch.
         }
-        val isDebuggable = applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
         if (isDebuggable) {
             // Blocking on purpose (debug only): the list must be seeded before the first screen reads it.
             runBlocking { koin.get<DebugSeeder>().seedIfEmpty(writeSampleTone()) }
