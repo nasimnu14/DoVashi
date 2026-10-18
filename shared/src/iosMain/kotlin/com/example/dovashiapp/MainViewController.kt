@@ -2,12 +2,14 @@ package com.example.dovashiapp
 
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.window.ComposeUIViewController
+import com.example.dovashiapp.debug.LocalDebugBuild
 import com.example.dovashiapp.di.initKoin
 import com.example.dovashiapp.di.iosPlatformModule
 import com.example.dovashiapp.domain.usecase.FailInterruptedMessagesUseCase
 import com.example.dovashiapp.domain.usecase.VoiceRecordingController
 import com.example.dovashiapp.permissions.IosMicrophonePermission
 import com.example.dovashiapp.permissions.LocalMicrophonePermission
+import kotlin.native.Platform
 import kotlinx.coroutines.runBlocking
 import org.koin.core.Koin
 import platform.Foundation.NSBundle
@@ -15,9 +17,13 @@ import platform.Foundation.NSNotificationCenter
 import platform.Foundation.NSOperationQueue
 import platform.UIKit.UIApplicationDidEnterBackgroundNotification
 
+@OptIn(kotlin.experimental.ExperimentalNativeApi::class)
 fun MainViewController() = ComposeUIViewController {
     startApp()
-    CompositionLocalProvider(LocalMicrophonePermission provides IosMicrophonePermission) { App() }
+    CompositionLocalProvider(
+        LocalMicrophonePermission provides IosMicrophonePermission,
+        LocalDebugBuild provides Platform.isDebugBinary,
+    ) { App() }
 }
 
 private var koin: Koin? = null

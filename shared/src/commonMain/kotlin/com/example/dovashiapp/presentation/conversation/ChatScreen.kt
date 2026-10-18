@@ -68,6 +68,8 @@ fun ChatScreen(
     onLoadOlder: () -> Unit,
     onMicClick: () -> Unit,
     onBackClick: () -> Unit,
+    showTestCasesButton: Boolean = false,
+    onTestCasesClick: () -> Unit = {},
 ) {
     Scaffold(
         topBar = {
@@ -79,6 +81,11 @@ fun ChatScreen(
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(painterResource(Res.drawable.ic_arrow_back), contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    if (showTestCasesButton) {
+                        TextButton(onClick = onTestCasesClick) { Text("Tests") }
                     }
                 },
             )
