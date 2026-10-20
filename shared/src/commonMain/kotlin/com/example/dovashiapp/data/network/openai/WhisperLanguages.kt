@@ -1,0 +1,36 @@
+package com.example.dovashiapp.data.network.openai
+
+import com.example.dovashiapp.domain.model.baseLanguageCode
+
+/**
+ * Language Code for the language Whisper reports in `verbose_json` (an English name such as "english"), or for a
+ * value that is already a code ("zh", "zh-CN"). Null when unknown.
+ */
+fun whisperLanguageCode(value: String): String? {
+    val normalized = value.trim().lowercase()
+    if (normalized.isEmpty()) return null
+    whisperLanguages[normalized]?.let { return it }
+    return baseLanguageCode(normalized).takeIf { it in whisperLanguages.values }
+}
+
+// Whisper's supported languages, name → ISO 639 code (Whisper's own "jw" for Javanese is mapped to ISO "jv").
+private val whisperLanguages: Map<String, String> = mapOf(
+    "english" to "en", "chinese" to "zh", "mandarin" to "zh", "german" to "de", "spanish" to "es", "russian" to "ru",
+    "korean" to "ko", "french" to "fr", "japanese" to "ja", "portuguese" to "pt", "turkish" to "tr", "polish" to "pl",
+    "catalan" to "ca", "dutch" to "nl", "arabic" to "ar", "swedish" to "sv", "italian" to "it", "indonesian" to "id",
+    "hindi" to "hi", "finnish" to "fi", "vietnamese" to "vi", "hebrew" to "he", "ukrainian" to "uk", "greek" to "el",
+    "malay" to "ms", "czech" to "cs", "romanian" to "ro", "danish" to "da", "hungarian" to "hu", "tamil" to "ta",
+    "norwegian" to "no", "thai" to "th", "urdu" to "ur", "croatian" to "hr", "bulgarian" to "bg", "lithuanian" to "lt",
+    "latin" to "la", "maori" to "mi", "malayalam" to "ml", "welsh" to "cy", "slovak" to "sk", "telugu" to "te",
+    "persian" to "fa", "latvian" to "lv", "bengali" to "bn", "bangla" to "bn", "serbian" to "sr",
+    "azerbaijani" to "az", "slovenian" to "sl", "kannada" to "kn", "estonian" to "et", "macedonian" to "mk",
+    "breton" to "br", "basque" to "eu", "icelandic" to "is", "armenian" to "hy", "nepali" to "ne", "mongolian" to "mn",
+    "bosnian" to "bs", "kazakh" to "kk", "albanian" to "sq", "swahili" to "sw", "galician" to "gl", "marathi" to "mr",
+    "punjabi" to "pa", "sinhala" to "si", "khmer" to "km", "shona" to "sn", "yoruba" to "yo", "somali" to "so",
+    "afrikaans" to "af", "occitan" to "oc", "georgian" to "ka", "belarusian" to "be", "tajik" to "tg", "sindhi" to "sd",
+    "gujarati" to "gu", "amharic" to "am", "yiddish" to "yi", "lao" to "lo", "uzbek" to "uz", "faroese" to "fo",
+    "haitian creole" to "ht", "pashto" to "ps", "turkmen" to "tk", "nynorsk" to "nn", "maltese" to "mt",
+    "sanskrit" to "sa", "luxembourgish" to "lb", "myanmar" to "my", "tibetan" to "bo", "tagalog" to "tl",
+    "malagasy" to "mg", "assamese" to "as", "tatar" to "tt", "hawaiian" to "haw", "lingala" to "ln", "hausa" to "ha",
+    "bashkir" to "ba", "javanese" to "jv", "sundanese" to "su", "cantonese" to "yue",
+)

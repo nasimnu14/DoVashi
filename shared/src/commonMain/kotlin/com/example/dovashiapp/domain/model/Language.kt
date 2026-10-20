@@ -6,4 +6,6 @@ data class Language(
     val nativeName: String,
     /** Whether a translation into this Language should carry a Reading (e.g. pinyin for a non-Latin script). */
     val requiresReading: Boolean = false,
+    /** Scripts this Language is written in; empty means unknown (no script-based detection). */
+    val scripts: Set<Script> = emptySet(),
 )
