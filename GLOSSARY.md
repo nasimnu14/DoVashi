@@ -43,9 +43,10 @@ on request.
 _Avoid_: voice note, audio clip
 
 **Reading**:
-A Latin-script, English-readable pronunciation of a Message's translation (for
-example pinyin for Mandarin Chinese), present only when the target Language
-needs one.
+A Latin-script, English-readable pronunciation of a Message's translation, in
+the Target Language's Reading system (for example Hanyu Pinyin with tone marks
+for Mandarin Chinese). Present only when the Target Language has a Reading
+system.
 _Avoid_: romanization (as a field name), pronunciation text
 
 **Message Status**:

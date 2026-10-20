@@ -13,8 +13,8 @@ import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 
 class MessageStepUseCasesTest {
-    private val plain = Language("aa", "Alpha", "Alpha", requiresReading = false)
-    private val script = Language("bb", "Beta", "Beta", requiresReading = true)
+    private val plain = Language("aa", "Alpha", "Alpha")
+    private val script = Language("bb", "Beta", "Beta", readingSystem = "Test Romanization")
     private val byCode: (String) -> Language? = { code -> listOf(plain, script).find { it.code == code } }
     private val repository = FakeMessageRepository()
     private val markTranscribing = MarkMessageTranscribingUseCase(repository)
@@ -71,6 +71,15 @@ class MessageStepUseCasesTest {
         val id = translatingMessage("bb", "aa")
         assertTrue(saveTranslation(id, "hello", "should not be stored"))
         assertNull(repository.getMessage(id)!!.reading)
+    }
+
+    @Test
+    fun nonLatinReadingIsDroppedButTheMessageStillCompletes() = runTest {
+        val id = translatingMessage("aa", "bb")
+        assertTrue(saveTranslation(id, "你好", "你好"))
+        val message = repository.getMessage(id)!!
+        assertEquals(MessageStatus.COMPLETED, message.status)
+        assertNull(message.reading)
     }
 
     @Test
