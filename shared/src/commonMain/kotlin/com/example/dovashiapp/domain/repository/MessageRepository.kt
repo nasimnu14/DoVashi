@@ -5,8 +5,11 @@ import com.example.dovashiapp.domain.model.MessageStatus
 import kotlinx.coroutines.flow.Flow
 
 interface MessageRepository {
-    /** The Conversation's Messages, newest first (`createdAt DESC`, then `id DESC`). */
-    fun observeMessages(conversationId: Long): Flow<List<Message>>
+    /**
+     * The Conversation's newest [limit] Messages, newest first (`createdAt DESC`, then `id DESC`). Asking for more
+     * loads older ones; the full history is never read at once.
+     */
+    fun observeMessages(conversationId: Long, limit: Int): Flow<List<Message>>
 
     /**
      * Inserts the message and bumps the parent conversation's `updatedAt` in one transaction. The pipeline creates

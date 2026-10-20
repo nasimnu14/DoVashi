@@ -106,6 +106,81 @@ class ChatViewModelTest {
         assertEquals(listOf(BubblePlayback.PAUSE, BubblePlayback.PLAY), states.bubbles().map { it.playback })
     }
 
+    private fun history(count: Int) = (count downTo 1).map { message(it.toLong()) }
+
+    @Test
+    fun opensWithOnlyTheNewestPageOfALargeConversation() = runTest {
+        conversations.conversations.value = mapOf(1L to conversation)
+        messages.messages.value = mapOf(1L to history(100))
+        val states = collect(viewModel())
+
+        val ids = states.bubbles().map { it.id }
+        assertEquals(ChatViewModel.PAGE_SIZE, ids.size)
+        assertEquals(100L, ids.first())
+    }
+
+    @Test
+    fun loadingOlderAddsOnePageAtATimeUntilEverythingIsLoaded() = runTest {
+        conversations.conversations.value = mapOf(1L to conversation)
+        messages.messages.value = mapOf(1L to history(70))
+        val vm = viewModel()
+        val states = collect(vm)
+
+        vm.onLoadOlder()
+        assertEquals(2 * ChatViewModel.PAGE_SIZE, states.bubbles().size)
+        vm.onLoadOlder()
+        assertEquals(70, states.bubbles().size)
+        vm.onLoadOlder() // everything is loaded: nothing more is requested
+        vm.onLoadOlder()
+        assertEquals(70, states.bubbles().size)
+        assertEquals(1L, states.bubbles().last().id)
+    }
+
+    @Test
+    fun smallConversationIgnoresLoadOlder() = runTest {
+        conversations.conversations.value = mapOf(1L to conversation)
+        messages.messages.value = mapOf(1L to history(5))
+        val vm = viewModel()
+        val states = collect(vm)
+
+        repeat(3) { vm.onLoadOlder() }
+        messages.messages.value = mapOf(1L to history(6))
+
+        // Had the window grown, the sixth Message would not push anything out; either way all six show.
+        assertEquals(6, states.bubbles().size)
+    }
+
+    @Test
+    fun newMessageDoesNotPushTheOlderOnesTheUserIsReadingOutOfTheWindow() = runTest {
+        conversations.conversations.value = mapOf(1L to conversation)
+        messages.messages.value = mapOf(1L to history(100))
+        val vm = viewModel()
+        val states = collect(vm)
+        vm.onLoadOlder() // 60 loaded; oldest shown is 41
+        assertEquals(41L, states.bubbles().last().id)
+
+        messages.messages.value = mapOf(1L to history(101))
+
+        assertEquals(101L, states.bubbles().first().id)
+        assertEquals(41L, states.bubbles().last().id, "the oldest loaded Message stays loaded")
+        assertEquals(61, states.bubbles().size)
+    }
+
+    @Test
+    fun reopeningAConversationStartsAtTheNewestPageAgain() = runTest {
+        conversations.conversations.value = mapOf(1L to conversation)
+        messages.messages.value = mapOf(1L to history(100))
+        val first = viewModel()
+        val firstStates = collect(first)
+        first.onLoadOlder()
+        assertEquals(60, firstStates.bubbles().size)
+
+        val reopened = collect(viewModel())
+
+        assertEquals(ChatViewModel.PAGE_SIZE, reopened.bubbles().size)
+        assertEquals(100L, reopened.bubbles().first().id)
+    }
+
     @Test
     fun retryClickRerunsAFailedMessageAndItCompletes() = runTest {
         val id = pipeline.messages.insertMessage(1, com.example.dovashiapp.domain.model.MessageStatus.FAILED, audioPath = "audio/a.m4a")
