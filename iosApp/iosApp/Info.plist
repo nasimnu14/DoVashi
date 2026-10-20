@@ -4,5 +4,9 @@
 <dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Bilangual records what you say to transcribe and translate it.</string>
+	<key>OpenAIApiKey</key>
+	<string>$(OPENAI_API_KEY)</string>
 </dict>
 </plist>

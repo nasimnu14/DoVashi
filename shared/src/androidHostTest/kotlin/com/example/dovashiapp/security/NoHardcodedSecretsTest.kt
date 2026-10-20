@@ -19,7 +19,8 @@ class NoHardcodedSecretsTest {
         val offenders = roots.flatMap { root ->
             root.walkTopDown()
                 .onEnter { it.name != "build" && it.name != "xcuserdata" }
-                .filter { it.isFile && it.extension in textExtensions }
+                // Secrets.xcconfig is the git-ignored home of the real key (checked below); everything else must be clean.
+                .filter { it.isFile && it.extension in textExtensions && it.name != "Secrets.xcconfig" }
                 .filter { keyShape.containsMatchIn(it.readText()) }
                 .map { it.relativeTo(repoRoot).path }
                 .toList()
