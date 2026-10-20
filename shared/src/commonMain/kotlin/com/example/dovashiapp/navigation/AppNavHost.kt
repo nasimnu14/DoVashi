@@ -10,6 +10,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
+import com.example.dovashiapp.debug.LocalDebugBuild
 import com.example.dovashiapp.permissions.LocalMicrophonePermission
 import com.example.dovashiapp.presentation.conversation.ChatScreen
 import com.example.dovashiapp.presentation.conversation.ChatUiState
@@ -19,6 +20,8 @@ import com.example.dovashiapp.presentation.createconversation.CreateConversation
 import com.example.dovashiapp.presentation.createconversation.CreateConversationViewModel
 import com.example.dovashiapp.presentation.home.HomeScreen
 import com.example.dovashiapp.presentation.home.HomeViewModel
+import com.example.dovashiapp.presentation.testcases.TestCasesScreen
+import com.example.dovashiapp.presentation.testcases.TestCasesViewModel
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 
@@ -81,6 +84,17 @@ fun AppNavHost() {
                         microphone.request { granted -> if (granted) viewModel.onMicClick() else viewModel.onMicrophoneDenied() }
                     }
                 },
+                onBackClick = dropUnlessResumed { navController.navigateUp() },
+                showTestCasesButton = LocalDebugBuild.current,
+                onTestCasesClick = { navController.navigate(TestCasesRoute) { launchSingleTop = true } },
+            )
+        }
+        composable<TestCasesRoute> {
+            val viewModel = koinViewModel<TestCasesViewModel>()
+            val state = viewModel.uiState.collectAsStateWithLifecycle().value
+            TestCasesScreen(
+                state = state,
+                onResultSelected = viewModel::onResultSelected,
                 onBackClick = dropUnlessResumed { navController.navigateUp() },
             )
         }

@@ -1,11 +1,13 @@
 package com.example.dovashiapp
 
+import android.content.pm.ApplicationInfo
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import com.example.dovashiapp.debug.LocalDebugBuild
 import com.example.dovashiapp.domain.usecase.VoiceRecordingController
 import com.example.dovashiapp.permissions.LocalMicrophonePermission
 import org.koin.core.context.GlobalContext
@@ -17,8 +19,12 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
 
+        val isDebuggable = applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
         setContent {
-            CompositionLocalProvider(LocalMicrophonePermission provides rememberMicrophonePermission()) {
+            CompositionLocalProvider(
+                LocalMicrophonePermission provides rememberMicrophonePermission(),
+                LocalDebugBuild provides isDebuggable,
+            ) {
                 App()
             }
         }

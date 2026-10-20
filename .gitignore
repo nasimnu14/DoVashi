@@ -2,6 +2,8 @@
 .kotlin
 .gradle
 **/build/
+# Signed APK/AAB output from Android Studio's "Generate Signed Bundle / APK"
+androidApp/release/
 xcuserdata
 !src/**/build/
 local.properties
