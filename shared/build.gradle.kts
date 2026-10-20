@@ -88,6 +88,9 @@ sqldelight {
     databases {
         create("DoVashiDatabase") {
             packageName.set("com.example.dovashiapp.data.database")
+            // Installed apps keep their data: every schema change ships a numbered .sqm, checked against these snapshots.
+            schemaOutputDirectory.set(file("src/commonMain/sqldelight/databases"))
+            verifyMigrations.set(true)
         }
     }
 }
