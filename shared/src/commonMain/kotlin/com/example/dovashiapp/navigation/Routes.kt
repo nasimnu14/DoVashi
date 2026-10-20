@@ -10,3 +10,6 @@ data object CreateConversationRoute
 
 @Serializable
 data class ChatRoute(val conversationId: Long)
+
+@Serializable
+data object TestCasesRoute

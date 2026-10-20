@@ -32,6 +32,7 @@ import com.example.dovashiapp.domain.usecase.VoiceRecordingController
 import com.example.dovashiapp.presentation.conversation.ChatViewModel
 import com.example.dovashiapp.presentation.createconversation.CreateConversationViewModel
 import com.example.dovashiapp.presentation.home.HomeViewModel
+import com.example.dovashiapp.presentation.testcases.TestCasesViewModel
 import kotlin.time.Clock
 import io.ktor.client.plugins.logging.Logger
 import kotlinx.coroutines.CoroutineDispatcher
@@ -88,6 +89,7 @@ val sharedModule = module {
     viewModel { HomeViewModel(get(), get(), get()) }
     viewModel { CreateConversationViewModel(get()) }
     viewModel { (conversationId: Long) -> ChatViewModel(conversationId, get(), get(), get(), get(), get()) }
+    viewModel { TestCasesViewModel() }
 }
 
 fun initKoin(platformModule: Module): Koin =
