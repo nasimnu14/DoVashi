@@ -20,6 +20,7 @@ import com.example.dovashiapp.domain.usecase.ObserveConversationUseCase
 import com.example.dovashiapp.domain.usecase.ObserveConversationSummariesUseCase
 import com.example.dovashiapp.domain.usecase.ObserveMessagesUseCase
 import com.example.dovashiapp.domain.usecase.ResolveMessageLanguagesUseCase
+import com.example.dovashiapp.domain.usecase.RetryMessageUseCase
 import com.example.dovashiapp.domain.usecase.RetryTranslationUseCase
 import com.example.dovashiapp.domain.usecase.SaveTranscriptionUseCase
 import com.example.dovashiapp.domain.usecase.SaveTranslationUseCase
@@ -79,13 +80,14 @@ val sharedModule = module {
     factory { FailInterruptedMessagesUseCase(get(), get()) }
     // Exceptions are handled where they happen; an Error (e.g. out of memory) should still crash and be reported.
     single(APP_SCOPE) { CoroutineScope(SupervisorJob() + Dispatchers.Default) }
-    single { MessageProcessor(get(APP_SCOPE), get()) }
+    factory { RetryMessageUseCase(get(), get(), get(), get(), get()) }
+    single { MessageProcessor(get(APP_SCOPE), get(), get()) }
     single { VoiceRecordingController(get(), get(), get(), get(), get(), get(APP_SCOPE), Dispatchers.Main) }
     factory { MarkMessageFailedUseCase(get()) }
     factory { DebugSeeder(get(), get(), get()) }
     viewModel { HomeViewModel(get(), get(), get()) }
     viewModel { CreateConversationViewModel(get()) }
-    viewModel { (conversationId: Long) -> ChatViewModel(conversationId, get(), get(), get(), get()) }
+    viewModel { (conversationId: Long) -> ChatViewModel(conversationId, get(), get(), get(), get(), get()) }
 }
 
 fun initKoin(platformModule: Module): Koin =

@@ -8,7 +8,9 @@ import com.example.dovashiapp.testing.message
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class ChatUiStateMapperTest {
     private val alpha = Language("aa", "Alpha", "Alpha")
@@ -94,6 +96,17 @@ class ChatUiStateMapperTest {
         assertEquals("Translating…" to false, labels[MessageStatus.TRANSLATING])
         assertEquals("Failed" to true, labels[MessageStatus.FAILED])
         assertEquals(null to false, labels[MessageStatus.COMPLETED])
+    }
+
+    @Test
+    fun failedMessageIsRetryableOnlyWithATranscriptOrARecording() {
+        fun canRetry(m: com.example.dovashiapp.domain.model.Message) = map(m).bubbles.single().canRetry
+        val failed = MessageStatus.FAILED
+        assertTrue(canRetry(message(1, status = failed, audioPath = "audio/a")))
+        assertTrue(canRetry(message(1, status = failed, audioPath = null, transcribedText = "hi", sourceLanguage = "en", targetLanguage = "zh")))
+        assertFalse(canRetry(message(1, status = failed, audioPath = null, transcribedText = null)))
+        assertFalse(canRetry(message(1, status = MessageStatus.COMPLETED, audioPath = "audio/a")))
+        assertFalse(canRetry(message(1, status = MessageStatus.TRANSLATING, audioPath = "audio/a")))
     }
 
     @Test
