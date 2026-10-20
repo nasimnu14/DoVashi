@@ -44,6 +44,16 @@ class AndroidFileStorageTest {
     }
 
     @Test
+    fun readReturnsBytesOrNull() {
+        File(root, "audio/a.m4a").apply { parentFile.mkdirs(); writeBytes(byteArrayOf(7, 8)) }
+        assertEquals(listOf<Byte>(7, 8), storage.read("audio/a.m4a")?.toList())
+        assertEquals(2L, storage.size("audio/a.m4a"))
+        assertNull(storage.size("audio/missing.m4a"))
+        assertNull(storage.read("audio/missing.m4a"))
+        assertNull(storage.read("../${outside.name}"))
+    }
+
+    @Test
     fun directoryIsNull() {
         File(root, "audio").mkdirs()
         assertNull(storage.resolve("audio"))

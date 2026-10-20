@@ -16,7 +16,7 @@ import kotlinx.coroutines.runBlocking
 class DoVashiApplication : Application() {
     override fun onCreate() {
         super.onCreate()
-        val koin = initKoin(androidPlatformModule(this))
+        val koin = initKoin(androidPlatformModule(this, openAiApiKey = BuildConfig.OPENAI_API_KEY))
         val isDebuggable = applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
         if (isDebuggable) {
             // Blocking on purpose (debug only): the list must be seeded before the first screen reads it.
