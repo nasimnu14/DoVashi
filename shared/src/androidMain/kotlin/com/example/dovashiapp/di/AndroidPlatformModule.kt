@@ -3,7 +3,9 @@ package com.example.dovashiapp.di
 import android.content.Context
 import app.cash.sqldelight.db.SqlDriver
 import com.example.dovashiapp.audio.AndroidAudioPlayer
+import com.example.dovashiapp.audio.AndroidAudioRecorder
 import com.example.dovashiapp.audio.AudioPlayer
+import com.example.dovashiapp.audio.AudioRecorder
 import com.example.dovashiapp.audio.FileStorage
 import com.example.dovashiapp.data.database.createAndroidSqlDriver
 import com.example.dovashiapp.data.network.openai.OpenAiConfig
@@ -20,6 +22,7 @@ fun androidPlatformModule(context: Context, openAiApiKey: String): Module = modu
     single<CoroutineDispatcher> { Dispatchers.IO }
     single<FileStorage> { AndroidFileStorage(context.filesDir) }
     factory<AudioPlayer> { AndroidAudioPlayer(get()) }
+    single<AudioRecorder> { AndroidAudioRecorder(context) }
     single<HttpClientEngine> { OkHttp.create() }
     single { OpenAiConfig(apiKey = openAiApiKey) }
 }

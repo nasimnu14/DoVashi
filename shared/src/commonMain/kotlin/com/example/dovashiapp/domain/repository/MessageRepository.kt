@@ -44,4 +44,13 @@ interface MessageRepository {
 
     /** Moves to FAILED, keeping every part saved so far. */
     suspend fun markFailed(id: Long): Boolean
+
+    /** Deletes a Message that is still RECORDING (an accidental tap or a failed start); false otherwise. */
+    suspend fun deleteRecording(id: Long): Boolean
+
+    /** Deletes every Message left RECORDING; returns their Recording references so the files can go too. Startup only. */
+    suspend fun deleteInterruptedRecordings(): List<String>
+
+    /** Marks every Message left TRANSCRIBING or TRANSLATING as FAILED; returns how many. Startup only. */
+    suspend fun failInterruptedMessages(): Int
 }

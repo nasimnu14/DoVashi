@@ -43,10 +43,11 @@ class DebugSeeder(
         insertMessage(failedId, MessageStatus.FAILED, first.code, second.code)
 
         seedClock.instant = now - 2.hours
-        val inProgressId = createConversation(first, second)
-        insertMessage(inProgressId, MessageStatus.TRANSLATING, first.code, second.code, transcribedText = "Can you help me?")
+        val failedId2 = createConversation(first, second)
+        // Failed after transcription (e.g. offline): the "retry from the transcript" shape.
+        insertMessage(failedId2, MessageStatus.FAILED, first.code, second.code, transcribedText = "Can you help me?")
         seedClock.instant = now - 90.minutes
-        insertMessage(inProgressId, MessageStatus.FAILED, second.code, first.code, transcribedText = "我需要一杯水")
+        insertMessage(failedId2, MessageStatus.FAILED, second.code, first.code, transcribedText = "我需要一杯水")
 
         // Sample text is illustrative only and matches the Phase 1 catalog order.
         seedClock.instant = now - 30.minutes
