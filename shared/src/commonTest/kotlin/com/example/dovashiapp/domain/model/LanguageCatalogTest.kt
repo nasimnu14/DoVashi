@@ -14,7 +14,7 @@ class LanguageCatalogTest {
     @Test
     fun `catalog contains English`() {
         assertEquals(
-            Language(code = "en", name = "English", nativeName = "English"),
+            Language(code = "en", name = "English", nativeName = "English", requiresReading = false),
             LanguageCatalog.all.find { it.code == "en" }
         )
     }
@@ -22,7 +22,7 @@ class LanguageCatalogTest {
     @Test
     fun `catalog contains Mandarin Chinese`() {
         assertEquals(
-            Language(code = "zh", name = "Mandarin Chinese", nativeName = "普通话"),
+            Language(code = "zh", name = "Mandarin Chinese", nativeName = "普通话", requiresReading = true),
             LanguageCatalog.all.find { it.code == "zh" }
         )
     }
@@ -30,7 +30,7 @@ class LanguageCatalogTest {
     @Test
     fun `byCode resolves English`() {
         assertEquals(
-            Language(code = "en", name = "English", nativeName = "English"),
+            Language(code = "en", name = "English", nativeName = "English", requiresReading = false),
             LanguageCatalog.byCode("en")
         )
     }
@@ -38,7 +38,7 @@ class LanguageCatalogTest {
     @Test
     fun `byCode resolves Mandarin Chinese`() {
         assertEquals(
-            Language(code = "zh", name = "Mandarin Chinese", nativeName = "普通话"),
+            Language(code = "zh", name = "Mandarin Chinese", nativeName = "普通话", requiresReading = true),
             LanguageCatalog.byCode("zh")
         )
     }
@@ -46,5 +46,10 @@ class LanguageCatalogTest {
     @Test
     fun `byCode returns null for unknown code`() {
         assertNull(LanguageCatalog.byCode("fr"))
+    }
+
+    @Test
+    fun `only Mandarin Chinese requires a Reading in Phase 1`() {
+        assertEquals(listOf("zh"), LanguageCatalog.all.filter { it.requiresReading }.map { it.code })
     }
 }

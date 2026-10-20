@@ -6,6 +6,7 @@ import com.example.dovashiapp.domain.model.Conversation
 import com.example.dovashiapp.domain.model.ConversationSummary
 import com.example.dovashiapp.domain.model.Message
 import com.example.dovashiapp.domain.model.MessageStatus
+import com.example.dovashiapp.domain.model.MessageStep
 import com.example.dovashiapp.domain.repository.ConversationRepository
 import com.example.dovashiapp.domain.repository.MessageRepository
 import kotlin.time.Clock
@@ -67,12 +68,18 @@ fun summary(
     messageCount = messageCount,
 )
 
+/**
+ * In-memory [MessageRepository] that follows the [MessageStep] guards. It does not model the Conversation
+ * `updatedAt` bump, foreign keys or real timestamps (`createdAt` = id); the SQLite tests cover those.
+ */
 class FakeMessageRepository : MessageRepository {
     /** Messages per conversation, newest first. */
     val messages = MutableStateFlow<Map<Long, List<Message>>>(emptyMap())
 
     override fun observeMessages(conversationId: Long): Flow<List<Message>> =
         messages.map { it[conversationId].orEmpty() }
+
+    override suspend fun getMessage(id: Long): Message? = messages.value.values.flatten().firstOrNull { it.id == id }
 
     override suspend fun insertMessage(
         conversationId: Long,
@@ -83,7 +90,36 @@ class FakeMessageRepository : MessageRepository {
         transcribedText: String?,
         translatedText: String?,
         reading: String?,
-    ): Long = error("not used")
+    ): Long {
+        val id = (messages.value.values.flatten().maxOfOrNull { it.id } ?: 0) + 1
+        val message = Message(id, conversationId, sourceLanguage, targetLanguage, audioPath, transcribedText, translatedText, reading, status, id)
+        messages.value = messages.value + (conversationId to listOf(message) + messages.value[conversationId].orEmpty())
+        return id
+    }
+
+    override suspend fun markTranscribing(id: Long) = step(id, MessageStep.START_TRANSCRIPTION) { it.takeIf { m -> m.audioPath != null } }
+
+    override suspend fun saveTranscription(id: Long, transcribedText: String, sourceLanguage: String, targetLanguage: String) =
+        step(id, MessageStep.SAVE_TRANSCRIPTION) {
+            it.copy(transcribedText = transcribedText, sourceLanguage = sourceLanguage, targetLanguage = targetLanguage)
+        }
+
+    override suspend fun retryTranslation(id: Long) = step(id, MessageStep.RETRY_TRANSLATION) {
+        it.takeIf { m -> m.transcribedText != null && m.sourceLanguage != null && m.targetLanguage != null }
+    }
+
+    override suspend fun saveTranslation(id: Long, translatedText: String, reading: String?) =
+        step(id, MessageStep.SAVE_TRANSLATION) { it.copy(translatedText = translatedText, reading = reading) }
+
+    override suspend fun markFailed(id: Long) = step(id, MessageStep.FAIL) { it }
+
+    private fun step(id: Long, step: MessageStep, change: (Message) -> Message?): Boolean {
+        val current = messages.value.values.flatten().firstOrNull { it.id == id } ?: return false
+        if (current.status !in step.from) return false
+        val updated = change(current)?.copy(status = step.next) ?: return false
+        messages.value = messages.value.mapValues { (_, list) -> list.map { if (it.id == id) updated else it } }
+        return true
+    }
 }
 
 class FakeAudioPlayer : AudioPlayer {

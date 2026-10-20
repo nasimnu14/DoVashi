@@ -10,6 +10,7 @@ import com.example.dovashiapp.domain.repository.ConversationRepository
 import kotlin.time.Clock
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.withContext
 
 class SqlConversationRepository(
@@ -30,6 +31,8 @@ class SqlConversationRepository(
                 messageCount = messageCount,
             )
         }.asFlow().mapToList(dispatcher)
+            // Refused Message steps still notify the table; don't re-emit an identical list.
+            .distinctUntilChanged()
 
     override fun observeConversation(id: Long): Flow<Conversation?> =
         queries.selectById(id) { rowId, title, language1Code, language2Code, createdAt, updatedAt ->

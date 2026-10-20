@@ -23,3 +23,33 @@ selectByConversation:
 SELECT * FROM Message
 WHERE conversationId = ?
 ORDER BY createdAt DESC, id DESC;
+
+selectById:
+SELECT * FROM Message WHERE id = ?;
+
+selectConversationId:
+SELECT conversationId FROM Message WHERE id = ?;
+
+-- Each step write only applies from its allowed previous statuses (see MessageStep).
+updateStatus:
+UPDATE Message SET status = :status
+WHERE id = :id AND status IN :allowed;
+
+saveTranscription:
+UPDATE Message
+SET transcribedText = :transcribedText, sourceLanguage = :sourceLanguage, targetLanguage = :targetLanguage, status = :status
+WHERE id = :id AND status IN :allowed;
+
+startTranscription:
+UPDATE Message SET status = :status
+WHERE id = :id AND status IN :allowed AND audioPath IS NOT NULL;
+
+retryTranslation:
+UPDATE Message SET status = :status
+WHERE id = :id AND status IN :allowed
+  AND transcribedText IS NOT NULL AND sourceLanguage IS NOT NULL AND targetLanguage IS NOT NULL;
+
+saveTranslation:
+UPDATE Message
+SET translatedText = :translatedText, reading = :reading, status = :status
+WHERE id = :id AND status IN :allowed;
