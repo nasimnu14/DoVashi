@@ -102,3 +102,11 @@ sqldelight {
 dependencies {
     androidRuntimeClasspath(libs.compose.uiTooling)
 }
+// The repository-guard tests (secrets, tech stack, architecture) read these files directly, so a change to any of
+// them must re-run the host tests.
+tasks.matching { it.name == "testAndroidHostTest" }.configureEach {
+    inputs.files(rootProject.file(".gitignore"), rootProject.file("gradle/libs.versions.toml"), rootProject.file("shared/build.gradle.kts"))
+        .withPropertyName("guardedRepositoryFiles")
+    inputs.files(rootProject.fileTree("androidApp/src"), rootProject.fileTree("iosApp") { exclude("**/xcuserdata/**", "**/build/**") })
+        .withPropertyName("guardedSourceTrees")
+}
