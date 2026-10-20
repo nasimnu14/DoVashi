@@ -42,6 +42,10 @@ kotlin {
     }
     
     sourceSets {
+        iosMain.dependencies {
+            implementation(libs.sqldelight.nativeDriver)
+            implementation(libs.ktor.client.darwin)
+        }
         androidMain.dependencies {
             implementation(libs.sqldelight.androidDriver)
             implementation(libs.ktor.client.okhttp)

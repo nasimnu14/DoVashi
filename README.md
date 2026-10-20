@@ -17,7 +17,7 @@ This is a Kotlin Multiplatform project targeting Android, iOS.
 The key is never committed. Transcription and translation call OpenAI directly (MVP).
 
 - Android: put `OPENAI_API_KEY=sk-…` in the untracked `local.properties` (or export it as an environment variable) and rebuild; it is compiled into `BuildConfig`. Without it, recording fails fast with a missing-key error and no network call.
-- iOS: put it in the git-ignored `iosApp/Configuration/Secrets.xcconfig` (wired up with the iOS platform components).
+- iOS: copy `iosApp/Configuration/Secrets.xcconfig.example` to the git-ignored `Secrets.xcconfig` and set `OPENAI_API_KEY`; Xcode passes it to the app through Info.plist (`OpenAIApiKey`).
 - Trade-off: the key is embedded in the built app (and in local Gradle caches), so treat any APK you share as holding it. The fix is a backend proxy: the app only knows the `TranslationService` and `SpeechToTextService` ports, so swap their two bindings in `SharedModule` (or point `OpenAiConfig.baseUrl` at the proxy).
 - Debug builds log OpenAI traffic to logcat under `DoVashi-HTTP` (the `Authorization` header is masked); release builds never log it.
 

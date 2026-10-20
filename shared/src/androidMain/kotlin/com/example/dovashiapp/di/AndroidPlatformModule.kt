@@ -1,6 +1,7 @@
 package com.example.dovashiapp.di
 
 import android.content.Context
+import android.media.AudioManager
 import app.cash.sqldelight.db.SqlDriver
 import com.example.dovashiapp.audio.AndroidAudioPlayer
 import com.example.dovashiapp.audio.AndroidAudioRecorder
@@ -24,7 +25,7 @@ fun androidPlatformModule(context: Context, openAiApiKey: String, logHttpTraffic
     single<SqlDriver> { createAndroidSqlDriver(context) }
     single<CoroutineDispatcher> { Dispatchers.IO }
     single<FileStorage> { AndroidFileStorage(context.filesDir) }
-    factory<AudioPlayer> { AndroidAudioPlayer(get()) }
+    factory<AudioPlayer> { AndroidAudioPlayer(get(), context.getSystemService(AudioManager::class.java)) }
     single<AudioRecorder> { AndroidAudioRecorder(context) }
     single<HttpClientEngine> { OkHttp.create() }
     single { OpenAiConfig(apiKey = openAiApiKey) }
