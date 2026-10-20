@@ -12,4 +12,10 @@ data class Message(
     val reading: String?,
     val status: MessageStatus,
     val createdAt: Long,
-)
+) {
+    /** The transcript and both Language Codes are saved, so a retry can resume at translation. */
+    val hasTranscript: Boolean get() = transcribedText != null && sourceLanguage != null && targetLanguage != null
+
+    /** Failed with something to resume from: the saved transcript, else the Recording (doc 12). */
+    val isRetryable: Boolean get() = status == MessageStatus.FAILED && (hasTranscript || !audioPath.isNullOrBlank())
+}

@@ -32,6 +32,25 @@ class MessageProcessorTest {
     }
 
     @Test
+    fun retryingAMessageThatIsAlreadyBeingProcessedLeavesTheRunningAttemptAlone() = runTest {
+        val f = PipelineFixture(UnconfinedTestDispatcher(testScheduler))
+        val id = f.messages.insertMessage(1, MessageStatus.FAILED, audioPath = "audio/a.m4a")
+        val gate = CompletableDeferred<Unit>()
+        f.speechToText.gate = gate
+
+        val first = f.processor.retry(id)
+        assertEquals(1, f.speechToText.calls.size, "the first retry is mid-flight")
+        val second = f.processor.retry(id) // a double tap
+        gate.complete(Unit)
+        first.join()
+
+        assertTrue(first === second, "the second tap reuses the running attempt")
+        assertTrue(!first.isCancelled)
+        assertEquals(MessageStatus.COMPLETED, f.messages.getMessage(id)!!.status)
+        assertEquals(1, f.speechToText.calls.size)
+    }
+
+    @Test
     fun differentMessagesRunConcurrently() = runTest {
         val f = PipelineFixture(UnconfinedTestDispatcher(testScheduler))
         val gate = CompletableDeferred<Unit>()

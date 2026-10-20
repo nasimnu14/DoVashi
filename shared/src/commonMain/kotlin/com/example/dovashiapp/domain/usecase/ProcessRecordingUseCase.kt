@@ -20,22 +20,10 @@ class ProcessRecordingUseCase(
     private val translateMessage: TranslateMessageUseCase,
     private val markFailed: MarkMessageFailedUseCase,
 ) {
-    suspend operator fun invoke(messageId: Long, conversationId: Long, recordingReference: String) {
-        val completed = try {
-            if (!markTranscribing(messageId)) return
-            transcribeAndTranslate(messageId, conversationId, recordingReference)
-        } catch (e: Exception) {
-            currentCoroutineContext().ensureActive() // cancelled: leave it to the next attempt or the startup sweep
-            false
+    suspend operator fun invoke(messageId: Long, conversationId: Long, recordingReference: String) =
+        failUnlessCompleted(markFailed, messageId) {
+            if (!markTranscribing(messageId)) null else transcribeAndTranslate(messageId, conversationId, recordingReference)
         }
-        if (!completed) {
-            try {
-                markFailed(messageId)
-            } catch (e: Exception) {
-                currentCoroutineContext().ensureActive() // the startup sweep will fail it instead
-            }
-        }
-    }
 
     private suspend fun transcribeAndTranslate(messageId: Long, conversationId: Long, recordingReference: String): Boolean {
         val transcription = speechToText.transcribe(recordingReference)
@@ -44,5 +32,25 @@ class ProcessRecordingUseCase(
         val languages = resolveLanguages(conversation, transcription) ?: return false
         if (!saveTranscription(messageId, text, languages.sourceLanguage, languages.targetLanguage)) return false
         return translateMessage(messageId)
+    }
+}
+
+/**
+ * Runs one pipeline [attempt]: null means it was refused (nothing started, nothing to fail), true means it completed,
+ * false or an exception marks the Message Failed, keeping everything saved so far.
+ */
+internal suspend fun failUnlessCompleted(markFailed: MarkMessageFailedUseCase, messageId: Long, attempt: suspend () -> Boolean?) {
+    val completed = try {
+        attempt()
+    } catch (e: Exception) {
+        currentCoroutineContext().ensureActive() // cancelled: leave it to the next attempt or the startup sweep
+        false
+    }
+    if (completed == false) {
+        try {
+            markFailed(messageId)
+        } catch (e: Exception) {
+            currentCoroutineContext().ensureActive() // the startup sweep will fail it instead
+        }
     }
 }
