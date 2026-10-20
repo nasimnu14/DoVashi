@@ -444,6 +444,46 @@ class SqlRepositoriesTest {
     }
 
     @Test
+    fun deleteRecordingOnlyDeletesARecordingMessage() = runTest {
+        val f = Fixture(this)
+        val conversation = f.conversation()
+        val recording = f.messages.insertMessage(conversation, MessageStatus.RECORDING, audioPath = "audio/r.m4a")
+        val transcribing = f.messages.insertMessage(conversation, MessageStatus.TRANSCRIBING, audioPath = "audio/t.m4a")
+        assertTrue(f.messages.deleteRecording(recording))
+        assertFalse(f.messages.deleteRecording(transcribing))
+        assertFalse(f.messages.deleteRecording(recording), "already gone")
+        assertEquals(listOf(transcribing), f.messages.observeMessages(conversation).first().map { it.id })
+    }
+
+    @Test
+    fun failInterruptedMessagesTouchesExactlyTheMidPipelineStatuses() = runTest {
+        val f = Fixture(this)
+        val conversation = f.conversation()
+        val ids = MessageStatus.entries.associateWith { f.messages.insertMessage(conversation, it, audioPath = "audio/x.m4a") }
+        assertEquals(listOf("audio/x.m4a"), f.messages.deleteInterruptedRecordings())
+        assertNull(f.messages.getMessage(ids.getValue(MessageStatus.RECORDING)))
+        assertEquals(2, f.messages.failInterruptedMessages())
+        val statuses = ids.filterKeys { it != MessageStatus.RECORDING }.mapValues { (_, id) -> f.messages.getMessage(id)!!.status }
+        assertEquals(
+            mapOf(
+                MessageStatus.TRANSCRIBING to MessageStatus.FAILED,
+                MessageStatus.TRANSLATING to MessageStatus.FAILED, MessageStatus.COMPLETED to MessageStatus.COMPLETED,
+                MessageStatus.FAILED to MessageStatus.FAILED,
+            ),
+            statuses,
+        )
+        assertEquals(0, f.messages.failInterruptedMessages())
+    }
+
+    @Test
+    fun getConversationReadsOneConversation() = runTest {
+        val f = Fixture(this)
+        val id = f.conversation("Alpha ↔ Beta")
+        assertEquals("Alpha ↔ Beta", f.conversations.getConversation(id)?.title)
+        assertNull(f.conversations.getConversation(id + 1))
+    }
+
+    @Test
     fun debugSeederCreatesVariedConversationsOnceThroughTheRealPath() = runTest {
         val f = Fixture(this)
         val seeder = DebugSeeder(f.database, f.clock, f.dispatcher)

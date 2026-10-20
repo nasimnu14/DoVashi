@@ -7,7 +7,9 @@ import com.example.dovashiapp.domain.usecase.ObserveMessagesUseCase
 import com.example.dovashiapp.testing.FakeAudioPlayer
 import com.example.dovashiapp.testing.FakeConversationRepository
 import com.example.dovashiapp.testing.FakeMessageRepository
+import com.example.dovashiapp.testing.PipelineFixture
 import com.example.dovashiapp.testing.message
+import com.example.dovashiapp.domain.usecase.RecordingState
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -31,8 +33,10 @@ class ChatViewModelTest {
     private val player = FakeAudioPlayer()
     private val conversation = Conversation(1, "Alpha ↔ Beta", "en", "zh", 0, 0)
 
+    private val pipeline = PipelineFixture(UnconfinedTestDispatcher())
+
     private fun viewModel(id: Long = 1) =
-        ChatViewModel(id, ObserveConversationUseCase(conversations), ObserveMessagesUseCase(messages), player)
+        ChatViewModel(id, ObserveConversationUseCase(conversations), ObserveMessagesUseCase(messages), player, pipeline.controller)
 
     private fun TestScope.collect(vm: ChatViewModel): MutableList<ChatUiState> {
         val states = mutableListOf<ChatUiState>()
@@ -167,6 +171,99 @@ class ChatViewModelTest {
         vm.stopPlayback()
 
         assertEquals(BubblePlayback.PLAY, states.bubbles().single().playback)
+    }
+
+    private fun MutableList<ChatUiState>.content() = assertIs<ChatUiState.Content>(last())
+
+    @Test
+    fun micClickStartsThenStopsAndStopsPlaybackFirst() = runTest {
+        conversations.conversations.value = mapOf(1L to conversation)
+        messages.messages.value = mapOf(1L to listOf(message(1, audioPath = "audio/a")))
+        val vm = viewModel()
+        val states = collect(vm)
+        vm.onPlaybackClick(1)
+
+        vm.onMicClick()
+        assertIs<MicUi.Recording>(states.content().mic)
+        assertEquals(BubblePlayback.PLAY, states.bubbles().single().playback, "playback stopped before recording")
+
+        vm.onMicClick()
+        assertEquals(MicUi.Idle, states.content().mic)
+        assertEquals(1, pipeline.recorder.stops)
+    }
+
+    @Test
+    fun anotherConversationRecordingMakesTheMicUnavailable() = runTest {
+        conversations.conversations.value = mapOf(1L to conversation)
+        val states = collect(viewModel())
+        pipeline.controller.start(2)
+        assertEquals(MicUi.Unavailable, states.content().mic)
+    }
+
+    @Test
+    fun deniedMicrophoneIsExplainedAndClearedOnTheNextTap() = runTest {
+        conversations.conversations.value = mapOf(1L to conversation)
+        val vm = viewModel()
+        val states = collect(vm)
+        vm.onMicrophoneDenied()
+        assertEquals("Microphone access is needed to record. You can allow it in Settings.", states.content().micMessage)
+        vm.onMicClick()
+        assertEquals(null, states.content().micMessage)
+    }
+
+    @Test
+    fun recorderFailureIsExplained() = runTest {
+        conversations.conversations.value = mapOf(1L to conversation)
+        pipeline.recorder.startSucceeds = false
+        val vm = viewModel()
+        val states = collect(vm)
+        vm.onMicClick()
+        assertEquals("Couldn't start recording. Please try again.", states.content().micMessage)
+        assertEquals(MicUi.Idle, states.content().mic)
+    }
+
+    @Test
+    fun aSecondTapWhileStartingStopsInsteadOfComplaining() = runTest {
+        conversations.conversations.value = mapOf(1L to conversation)
+        val gate = kotlinx.coroutines.CompletableDeferred<Unit>()
+        pipeline.messages.insertGate = gate
+        pipeline.recorder.stopDuration = 100
+        val vm = viewModel()
+        val states = collect(vm)
+
+        vm.onMicClick()
+        assertIs<MicUi.Recording>(states.content().mic, "starting already shows as recording here")
+        vm.onMicClick()
+        gate.complete(Unit)
+
+        assertEquals(MicUi.Idle, states.content().mic)
+        assertEquals(null, states.content().micMessage)
+        assertEquals(RecordingState.Idle, pipeline.controller.state.value)
+    }
+
+    @Test
+    fun aRecordingLostByAnAutomaticStopIsExplained() = runTest {
+        conversations.conversations.value = mapOf(1L to conversation)
+        val vm = viewModel()
+        val states = collect(vm)
+        pipeline.recorder.stopDuration = null
+        vm.onMicClick()
+        pipeline.clock.instant += kotlin.time.Duration.parse("30s")
+        pipeline.controller.stopAny() // e.g. the app went to the background
+
+        assertEquals("The recording didn't work. Please try again.", states.content().micMessage)
+        assertEquals(MicUi.Idle, states.content().mic)
+    }
+
+    @Test
+    fun clearingTheViewModelStopsItsRecording() = runTest {
+        val store = ViewModelStore()
+        val vm = viewModel()
+        store.put("chat", vm)
+        vm.onMicClick()
+        assertIs<RecordingState.Recording>(pipeline.controller.state.value)
+        store.clear()
+        assertEquals(RecordingState.Idle, pipeline.controller.state.value)
     }
 
     @Test
