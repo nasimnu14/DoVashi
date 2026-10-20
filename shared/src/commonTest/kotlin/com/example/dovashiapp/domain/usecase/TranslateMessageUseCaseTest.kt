@@ -1,6 +1,7 @@
 package com.example.dovashiapp.domain.usecase
 
 import com.example.dovashiapp.domain.model.Language
+import com.example.dovashiapp.domain.model.LanguageCatalog
 import com.example.dovashiapp.domain.model.MessageStatus
 import com.example.dovashiapp.domain.service.TranslationException
 import com.example.dovashiapp.domain.service.TranslationRequest
@@ -16,8 +17,8 @@ import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 
 class TranslateMessageUseCaseTest {
-    private val plain = Language("aa", "Alpha", "Alpha", requiresReading = false)
-    private val script = Language("bb", "Beta", "Beta", requiresReading = true)
+    private val plain = Language("aa", "Alpha", "Alpha")
+    private val script = Language("bb", "Beta", "Beta", readingSystem = "Test Romanization")
     private val byCode: (String) -> Language? = { code -> listOf(plain, script).find { it.code == code } }
     private val repository = FakeMessageRepository()
 
@@ -43,7 +44,7 @@ class TranslateMessageUseCaseTest {
     fun translatesAndCompletesWithReadingWhenTheTargetNeedsOne() = runTest {
         val id = translating("aa", "bb")
         assertTrue(translate(id))
-        assertEquals(TranslationRequest("aa", "bb", "hello", readingRequired = true), translator.requests.single())
+        assertEquals(TranslationRequest("aa", "bb", "hello", readingSystem = "Test Romanization"), translator.requests.single())
         val message = repository.getMessage(id)!!
         assertEquals(MessageStatus.COMPLETED, message.status)
         assertEquals("translated" to "reading", message.translatedText to message.reading)
@@ -54,7 +55,17 @@ class TranslateMessageUseCaseTest {
         val id = translating("bb", "aa")
         assertTrue(translate(id))
         assertFalse(translator.requests.single().readingRequired)
+        assertNull(translator.requests.single().readingSystem)
         assertNull(repository.getMessage(id)!!.reading)
+    }
+
+    @Test
+    fun realCatalogAsksForPinyinForMandarinChinese() = runTest {
+        val (english, mandarin) = LanguageCatalog.all
+        val real = TranslateMessageUseCase(repository, translator, SaveTranslationUseCase(repository, LanguageCatalog::byCode), LanguageCatalog::byCode)
+        val id = translating(english.code, mandarin.code)
+        assertTrue(real(id))
+        assertEquals("Hanyu Pinyin with tone marks", translator.requests.single().readingSystem)
     }
 
     @Test

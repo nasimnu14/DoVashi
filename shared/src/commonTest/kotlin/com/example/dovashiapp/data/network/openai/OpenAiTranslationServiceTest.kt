@@ -28,6 +28,7 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import kotlinx.io.IOException
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.buildJsonObject
@@ -37,10 +38,10 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 
 class OpenAiTranslationServiceTest {
-    private val catalog = listOf(Language("aa", "Alpha", "Alpha"), Language("bb", "Beta", "Beta", requiresReading = true))
+    private val catalog = listOf(Language("aa", "Alpha", "Alpha"), Language("bb", "Beta", "Beta", readingSystem = "Test Romanization"))
     private val requests = mutableListOf<HttpRequestData>()
     private val bodies = mutableListOf<String>()
-    private val toB = TranslationRequest("aa", "bb", "How are you?", readingRequired = true)
+    private val toB = TranslationRequest("aa", "bb", "How are you?", readingSystem = "Test Romanization")
 
     private fun content(source: String = "aa", target: String = "bb", translated: String = "Ça va ?", reading: String? = "sa va") =
         buildJsonObject {
@@ -109,17 +110,19 @@ class OpenAiTranslationServiceTest {
         assertEquals("Beta", fields["targetLanguageName"]!!.jsonPrimitive.content)
         assertEquals("How are you?", fields["text"]!!.jsonPrimitive.content)
         assertTrue(fields["pronunciationRequired"]!!.jsonPrimitive.boolean)
-        assertTrue("englishReading" in user)
+        assertEquals("Test Romanization", fields["pronunciationSystem"]!!.jsonPrimitive.content)
+        assertTrue("using Test Romanization, in englishReading" in user, user)
     }
 
     @Test
     fun noReadingWantedAndNullReadingParses() = runTest {
-        val reverse = TranslationRequest("bb", "aa", "x", readingRequired = false)
+        val reverse = TranslationRequest("bb", "aa", "x", readingSystem = null)
         val result = service(body = chat(content(source = "bb", target = "aa", reading = null))).translate(reverse)
         assertEquals(TranslationResult("bb", "aa", "x", "Ça va ?", null), result)
         val json = Json.parseToJsonElement(bodies.single()).jsonObject
         val user = json["messages"]!!.jsonArray[1].jsonObject["content"]!!.jsonPrimitive.content
         assertTrue("Set englishReading to null." in user)
+        assertEquals(JsonNull, (Json.parseToJsonElement(user.substringAfter('\n')) as JsonObject)["pronunciationSystem"])
         val reading = json["response_format"]!!.jsonObject["json_schema"]!!.jsonObject["schema"]!!.jsonObject["properties"]!!
             .jsonObject["englishReading"]!!.jsonObject["type"].toString()
         assertEquals("[\"string\",\"null\"]", reading)
@@ -127,7 +130,7 @@ class OpenAiTranslationServiceTest {
 
     @Test
     fun readingIsDroppedWhenNotRequestedEvenIfTheModelSendsOne() = runTest {
-        val reverse = TranslationRequest("bb", "aa", "x", readingRequired = false)
+        val reverse = TranslationRequest("bb", "aa", "x", readingSystem = null)
         assertNull(service(body = chat(content(source = "bb", target = "aa", reading = "extra"))).translate(reverse).reading)
     }
 

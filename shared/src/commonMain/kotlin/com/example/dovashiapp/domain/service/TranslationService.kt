@@ -6,13 +6,18 @@ interface TranslationService {
     suspend fun translate(request: TranslationRequest): TranslationResult
 }
 
-/** What a translation needs, as data: Language Codes, the transcript, and whether the target needs a Reading. */
+/**
+ * What a translation needs, as data: Language Codes, the transcript, and the target's Reading system (null when the
+ * target needs no Reading).
+ */
 data class TranslationRequest(
     val sourceLanguage: String,
     val targetLanguage: String,
     val transcribedText: String,
-    val readingRequired: Boolean,
-)
+    val readingSystem: String?,
+) {
+    val readingRequired: Boolean get() = readingSystem != null
+}
 
 /** The translation contract's answer; the same shape for every Language Pair. */
 data class TranslationResult(
