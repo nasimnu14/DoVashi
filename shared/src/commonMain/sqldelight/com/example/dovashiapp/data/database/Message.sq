@@ -18,3 +18,8 @@ INSERT INTO Message(
     conversationId, sourceLanguage, targetLanguage, audioPath,
     transcribedText, translatedText, reading, status, createdAt
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+selectByConversation:
+SELECT * FROM Message
+WHERE conversationId = ?
+ORDER BY createdAt DESC, id DESC;

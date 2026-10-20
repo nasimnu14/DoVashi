@@ -9,7 +9,10 @@ import com.example.dovashiapp.domain.repository.ConversationRepository
 import com.example.dovashiapp.domain.repository.MessageRepository
 import com.example.dovashiapp.domain.usecase.CreateConversationUseCase
 import com.example.dovashiapp.domain.usecase.InsertMessageUseCase
+import com.example.dovashiapp.domain.usecase.ObserveConversationUseCase
 import com.example.dovashiapp.domain.usecase.ObserveConversationSummariesUseCase
+import com.example.dovashiapp.domain.usecase.ObserveMessagesUseCase
+import com.example.dovashiapp.presentation.conversation.ChatViewModel
 import com.example.dovashiapp.presentation.createconversation.CreateConversationViewModel
 import com.example.dovashiapp.presentation.home.HomeViewModel
 import kotlin.time.Clock
@@ -21,7 +24,10 @@ import org.koin.core.module.Module
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
-/** Platform modules must provide a [SqlDriver] and the [CoroutineDispatcher] used for database work. */
+/**
+ * Platform modules must provide a [SqlDriver], the [CoroutineDispatcher] used for database work,
+ * a [com.example.dovashiapp.audio.FileStorage] and an [com.example.dovashiapp.audio.AudioPlayer] factory.
+ */
 val sharedModule = module {
     single { DoVashiDatabase(get<SqlDriver>()) }
     single<Clock> { Clock.System }
@@ -31,9 +37,12 @@ val sharedModule = module {
     factory { ObserveConversationSummariesUseCase(get()) }
     factory { CreateConversationUseCase(get()) }
     factory { InsertMessageUseCase(get()) }
+    factory { ObserveConversationUseCase(get()) }
+    factory { ObserveMessagesUseCase(get()) }
     factory { DebugSeeder(get(), get(), get()) }
     viewModel { HomeViewModel(get(), get(), get()) }
     viewModel { CreateConversationViewModel(get()) }
+    viewModel { (conversationId: Long) -> ChatViewModel(conversationId, get(), get(), get()) }
 }
 
 fun initKoin(platformModule: Module): Koin =
