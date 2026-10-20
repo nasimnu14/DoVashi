@@ -22,8 +22,8 @@ class SqlMessageRepository(
 
     private val queries get() = database.messageQueries
 
-    override fun observeMessages(conversationId: Long): Flow<List<Message>> =
-        queries.selectByConversation(conversationId, ::toMessage).asFlow().mapToList(dispatcher)
+    override fun observeMessages(conversationId: Long, limit: Int): Flow<List<Message>> =
+        queries.selectNewestByConversation(conversationId, limit.toLong(), ::toMessage).asFlow().mapToList(dispatcher)
             // A refused step still notifies the table; don't re-emit an identical list.
             .distinctUntilChanged()
 

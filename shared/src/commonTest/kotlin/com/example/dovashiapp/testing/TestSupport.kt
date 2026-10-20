@@ -99,8 +99,8 @@ class FakeMessageRepository : MessageRepository {
     /** Messages per conversation, newest first. */
     val messages = MutableStateFlow<Map<Long, List<Message>>>(emptyMap())
 
-    override fun observeMessages(conversationId: Long): Flow<List<Message>> =
-        messages.map { it[conversationId].orEmpty() }
+    override fun observeMessages(conversationId: Long, limit: Int): Flow<List<Message>> =
+        messages.map { it[conversationId].orEmpty().take(limit) }
 
     override suspend fun getMessage(id: Long): Message? = messages.value.values.flatten().firstOrNull { it.id == id }
 

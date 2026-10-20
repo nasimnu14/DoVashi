@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -39,9 +40,13 @@ class ChatViewModel(
     private val unplayableRecordings = MutableStateFlow<Map<Long, String>>(emptyMap())
     private var latestMessages: List<Message> = emptyList()
 
+    /** How many of the newest Messages are loaded; grows as the user scrolls up (doc 11). */
+    private val windowSize = MutableStateFlow(PAGE_SIZE)
+    private var newestId: Long? = null
+
     val uiState: StateFlow<ChatUiState> = combine(
         observeConversation(conversationId),
-        observeMessages(conversationId).onEach { latestMessages = it },
+        windowSize.flatMapLatest { observeMessages(conversationId, it) }.onEach(::track),
         audioPlayer.state,
         unplayableRecordings,
         combine(recordingController.state, micMessage) { recording, message -> micUi(recording, conversationId) to message },
@@ -59,6 +64,21 @@ class ChatViewModel(
     }
 
     fun stopPlayback() = audioPlayer.stop()
+
+    /** The user is near the oldest loaded Message: load another page, unless everything is already loaded. */
+    fun onLoadOlder() {
+        windowSize.update { size -> if (latestMessages.size >= size) size + PAGE_SIZE else size }
+    }
+
+    private fun track(messages: List<Message>) {
+        latestMessages = messages
+        // Messages that arrived since the last emission widen the window by as many, so the older ones the user
+        // is looking at don't slide out of it.
+        val previousNewest = newestId
+        newestId = messages.firstOrNull()?.id
+        val arrived = if (previousNewest == null) 0 else messages.indexOfFirst { it.id == previousNewest }
+        if (arrived > 0) windowSize.update { it + arrived }
+    }
 
     /** Retries a Failed Message from its saved transcript or Recording; it keeps running if the user leaves. */
     fun onRetryClick(messageId: Long) {
@@ -101,7 +121,8 @@ class ChatViewModel(
         recordingController.stopIfRecording(conversationId)
     }
 
-    private companion object {
+    internal companion object {
+        const val PAGE_SIZE = 30
         const val MICROPHONE_DENIED_MESSAGE = "Microphone access is needed to record. You can allow it in Settings."
         const val START_FAILED_MESSAGE = "Couldn't start recording. Please try again."
         const val ALREADY_RECORDING_MESSAGE = "Another conversation is recording."

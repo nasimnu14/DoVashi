@@ -30,7 +30,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import dovashiapp.shared.generated.resources.ic_stop
 import dovashiapp.shared.generated.resources.ic_mic
@@ -54,12 +56,16 @@ import dovashiapp.shared.generated.resources.ic_pause
 import dovashiapp.shared.generated.resources.ic_play
 import org.jetbrains.compose.resources.painterResource
 
+/** Start loading older Messages when this few remain above the viewport. */
+private const val LOAD_OLDER_PREFETCH = 8
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
     state: ChatUiState,
     onPlaybackClick: (Long) -> Unit,
     onRetryClick: (Long) -> Unit,
+    onLoadOlder: () -> Unit,
     onMicClick: () -> Unit,
     onBackClick: () -> Unit,
 ) {
@@ -87,7 +93,7 @@ fun ChatScreen(
                     if (state.bubbles.isEmpty()) {
                         CenteredText("No messages yet")
                     } else {
-                        MessageList(state.bubbles, onPlaybackClick, onRetryClick)
+                        MessageList(state.bubbles, onPlaybackClick, onRetryClick, onLoadOlder)
                     }
             }
         }
@@ -95,7 +101,7 @@ fun ChatScreen(
 }
 
 @Composable
-private fun MessageList(bubbles: List<MessageBubbleUi>, onPlaybackClick: (Long) -> Unit, onRetryClick: (Long) -> Unit) {
+private fun MessageList(bubbles: List<MessageBubbleUi>, onPlaybackClick: (Long) -> Unit, onRetryClick: (Long) -> Unit, onLoadOlder: () -> Unit) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val maxBubbleWidth = maxWidth * 0.85f
         val listState = rememberLazyListState()
@@ -108,6 +114,12 @@ private fun MessageList(bubbles: List<MessageBubbleUi>, onPlaybackClick: (Long) 
                 lastNewestId = newestId
                 if (listState.firstVisibleItemIndex <= 1) listState.animateScrollToItem(0)
             }
+        }
+        // Near the oldest loaded Message (the end of the reversed list): ask for another page.
+        val currentLoadOlder by rememberUpdatedState(onLoadOlder)
+        LaunchedEffect(listState) {
+            snapshotFlow { (listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0) to listState.layoutInfo.totalItemsCount }
+                .collect { (lastVisible, total) -> if (total > 0 && lastVisible >= total - 1 - LOAD_OLDER_PREFETCH) currentLoadOlder() }
         }
         // Newest first + reversed layout: opens at the newest Message, older ones are above.
         LazyColumn(

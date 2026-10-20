@@ -5,6 +5,6 @@ import com.example.dovashiapp.domain.repository.MessageRepository
 import kotlinx.coroutines.flow.Flow
 
 class ObserveMessagesUseCase(private val repository: MessageRepository) {
-    /** Newest first. */
-    operator fun invoke(conversationId: Long): Flow<List<Message>> = repository.observeMessages(conversationId)
+    /** The newest [limit] Messages, newest first. */
+    operator fun invoke(conversationId: Long, limit: Int): Flow<List<Message>> = repository.observeMessages(conversationId, limit)
 }
